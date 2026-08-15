@@ -1,0 +1,163 @@
+/* The "designed vanilla" layer: the LLM emits bare semantic HTML, this makes
+   it look intentional. Scoped entirely to .jarvis-prose. */
+
+.jarvis-prose {
+  width: min(100%, 60rem);
+  margin: 0 auto;
+}
+
+.jarvis-prose h1,
+.jarvis-prose h2,
+.jarvis-prose h3,
+.jarvis-prose h4 {
+  line-height: 1.15;
+  margin: 0 0 var(--space-3);
+  text-wrap: balance;
+}
+
+.jarvis-prose h1 {
+  font-size: 2.6rem;
+  font-weight: 700;
+}
+
+.jarvis-prose h2 {
+  font-size: 1.8rem;
+  font-weight: 650;
+}
+
+.jarvis-prose h3 {
+  font-size: 1.35rem;
+  font-weight: 600;
+  color: var(--accent);
+}
+
+.jarvis-prose h4 {
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+}
+
+.jarvis-prose p {
+  margin: 0 0 var(--space-3);
+  max-width: 65ch;
+}
+
+.jarvis-prose ul,
+.jarvis-prose ol {
+  margin: 0 0 var(--space-3);
+  padding-left: 1.4em;
+}
+
+.jarvis-prose li {
+  margin-bottom: var(--space-2);
+}
+
+.jarvis-prose ul li::marker {
+  color: var(--accent);
+}
+
+.jarvis-prose ol li::marker {
+  color: var(--accent);
+  font-weight: 600;
+}
+
+.jarvis-prose table {
+  border-collapse: collapse;
+  width: 100%;
+  margin: 0 0 var(--space-4);
+  font-variant-numeric: tabular-nums;
+}
+
+.jarvis-prose th {
+  text-align: left;
+  font-size: 0.85rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-muted);
+  border-bottom: 2px solid var(--accent);
+  padding: var(--space-2) var(--space-3);
+}
+
+.jarvis-prose td {
+  padding: var(--space-2) var(--space-3);
+  border-bottom: 1px solid var(--border);
+}
+
+.jarvis-prose tbody tr:nth-child(even) {
+  background: var(--surface);
+}
+
+.jarvis-prose blockquote {
+  margin: 0 0 var(--space-3);
+  padding: var(--space-2) var(--space-3);
+  border-left: 4px solid var(--accent);
+  background: var(--surface);
+  border-radius: 0 var(--radius) var(--radius) 0;
+  font-style: italic;
+}
+
+.jarvis-prose code {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: calc(var(--radius) / 2);
+  padding: 0.1em 0.4em;
+  font-size: 0.9em;
+}
+
+.jarvis-prose pre {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: var(--space-3);
+  overflow-x: auto;
+}
+
+.jarvis-prose pre code {
+  background: none;
+  border: none;
+  padding: 0;
+}
+
+.jarvis-prose a {
+  color: var(--accent);
+  text-decoration-thickness: 2px;
+  text-underline-offset: 0.15em;
+}
+
+.jarvis-prose img {
+  max-width: 100%;
+  max-height: 60vh;
+  object-fit: contain;
+  border-radius: var(--radius);
+  display: block;
+  margin: 0 auto var(--space-3);
+}
+
+.jarvis-prose hr {
+  border: none;
+  border-top: 1px solid var(--border);
+  margin: var(--space-4) 0;
+}
+
+/* ---------- video embeds (constructed client-side) ---------- */
+
+.jarvis-prose .jarvis-embed {
+  margin: 0 0 var(--space-3);
+  width: min(100%, 60rem);
+}
+
+.jarvis-prose .jarvis-embed iframe {
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  border: none;
+  border-radius: var(--radius);
+  background: #000;
+}
+
+.jarvis-prose .jarvis-embed figcaption {
+  margin-top: var(--space-1);
+  font-size: 0.8rem;
+  color: var(--text-muted);
+}

@@ -1,0 +1,30 @@
+{
+  "name": "jarvis",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Voice-assistant-driven TV display for the gym — pushes LLM-generated HTML to screens over WebSockets",
+  "scripts": {
+    "dev": "tsx watch --clear-screen=false server.ts",
+    "build": "next build && npm run build:server",
+    "build:server": "esbuild server.ts --bundle --platform=node --target=node22 --format=cjs --outfile=dist/server.js --external:next --external:next/* --external:react --external:react-dom",
+    "start": "NODE_ENV=production node dist/server.js",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "next": "^15.4.6",
+    "react": "^19.1.0",
+    "react-dom": "^19.1.0",
+    "sanitize-html": "^2.13.0",
+    "ws": "^8.18.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.0",
+    "@types/react": "^19.1.0",
+    "@types/react-dom": "^19.1.0",
+    "@types/sanitize-html": "^2.13.0",
+    "@types/ws": "^8.5.13",
+    "esbuild": "^0.24.0",
+    "tsx": "^4.19.0",
+    "typescript": "^5.7.0"
+  }
+}
