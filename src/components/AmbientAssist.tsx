@@ -65,29 +65,50 @@ export function AmbientAssist() {
     setTimeout(() => setCaptions((c) => c.filter((entry) => entry.id !== id)), CAPTION_TTL_MS);
   }, []);
 
-  const speak = useCallback(async (text: string) => {
-    try {
-      const res = await fetch('/api/tts', {
-        method: 'POST',
-        headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ text }),
-      });
-      if (!res.ok) throw new Error(`tts ${res.status}`);
-      const blob = await res.blob();
-      const url = URL.createObjectURL(blob);
-      audioRef.current?.pause();
-      const audio = new Audio(url);
-      audioRef.current = audio;
-      audio.onended = () => URL.revokeObjectURL(url);
-      await audio.play();
-    } catch {
-      // Wyoming unavailable (or autoplay blocked) — browser voice fallback.
-      if (window.speechSynthesis) {
-        window.speechSynthesis.cancel();
-        window.speechSynthesis.speak(new SpeechSynthesisUtterance(text));
+  const pendingAudio = useRef<HTMLAudioElement | null>(null);
+
+  const speak = useCallback(
+    async (text: string) => {
+      let audio: HTMLAudioElement | null = null;
+      try {
+        const res = await fetch('/api/tts', {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({ text }),
+        });
+        if (!res.ok) throw new Error(`tts ${res.status}`);
+        const blob = await res.blob();
+        const url = URL.createObjectURL(blob);
+        audioRef.current?.pause();
+        audio = new Audio(url);
+        audioRef.current = audio;
+        audio.onended = () => URL.revokeObjectURL(url);
+      } catch {
+        // Wyoming unavailable — browser voice fallback.
+        if (window.speechSynthesis) {
+          window.speechSynthesis.cancel();
+          window.speechSynthesis.speak(new SpeechSynthesisUtterance(text));
+        }
+        return;
       }
-    }
-  }, []);
+      try {
+        await audio.play();
+      } catch {
+        // Autoplay blocked: browsers require one interaction before sound.
+        // Park the reply and release it on the next tap/keypress.
+        pendingAudio.current = audio;
+        pushCaption('system', 'tap anywhere to enable audio');
+        const unlock = () => {
+          const parked = pendingAudio.current;
+          pendingAudio.current = null;
+          void parked?.play().catch(() => {});
+        };
+        window.addEventListener('pointerdown', unlock, { once: true });
+        window.addEventListener('keydown', unlock, { once: true });
+      }
+    },
+    [pushCaption],
+  );
 
   const send = useCallback(
     async (text: string) => {
@@ -126,8 +147,7 @@ export function AmbientAssist() {
         conversationId.current = data.conversationId ?? conversationId.current;
         if (data.speech) {
           pushCaption('assistant', data.speech);
-          // Don't voice the default agent's "couldn't understand" grumbles.
-          if (data.responseType !== 'error') void speak(data.speech);
+          void speak(data.speech);
         }
       } catch {
         pushCaption('system', 'could not reach jarvis');
