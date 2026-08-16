@@ -4,6 +4,7 @@ import { extname, join, normalize, sep } from 'node:path';
 import type { Duplex } from 'node:stream';
 import { WebSocketServer, type WebSocket } from 'ws';
 import { store } from './src/lib/store';
+import { buildBrainGraph, invalidateBrainCache } from './src/lib/brain';
 import { sanitizeDisplayHtml } from './src/lib/sanitize';
 import { isAuthorized } from './src/lib/auth';
 import type { DisplayState, ServerMessage } from './src/lib/protocol';
@@ -26,6 +27,10 @@ const HA_URL = (process.env.HA_URL ?? '').replace(/\/$/, '');
 const HA_TOKEN = process.env.HA_TOKEN ?? '';
 const HA_AGENT_ID = process.env.HA_AGENT_ID ?? '';
 const ASSIST_TIMEOUT_MS = 60_000; // LLM-backed agents can be slow
+
+// Second-brain graph (GET /api/brain/graph). BRAIN_DIR points at the vault
+// (read-only NFS mount in production); unset disables with a 503.
+const BRAIN_DIR = process.env.BRAIN_DIR ?? '';
 
 type RequestHandler = (req: IncomingMessage, res: ServerResponse) => Promise<void> | void;
 type UpgradeHandler = (req: IncomingMessage, socket: Duplex, head: Buffer) => Promise<void> | void;
@@ -220,6 +225,23 @@ async function handleApi(req: IncomingMessage, res: ServerResponse, pathname: st
 
   if (pathname === '/api/assist') {
     await handleAssist(req, res);
+    return;
+  }
+
+  // Same trust model as /api/assist: viewer-facing, LAN/VPN-only vhost.
+  if (pathname === '/api/brain/graph') {
+    if (!BRAIN_DIR) {
+      sendJson(res, 503, { error: 'brain graph not configured (set BRAIN_DIR)' });
+      return;
+    }
+    try {
+      const url = new URL(req.url ?? '/', 'http://jarvis.internal');
+      if (url.searchParams.get('refresh') === '1') invalidateBrainCache();
+      sendJson(res, 200, buildBrainGraph(BRAIN_DIR));
+    } catch (err) {
+      console.error('[brain] graph build failed:', err);
+      sendJson(res, 500, { error: 'could not read the vault' });
+    }
     return;
   }
 

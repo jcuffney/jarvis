@@ -34,13 +34,18 @@ export function DisplaySurface() {
       {assistOpen ? (
         <AssistPanel onClose={() => setAssistOpen(false)} />
       ) : (
-        <button
-          className="assist-toggle"
-          onClick={() => setAssistOpen(true)}
-          aria-label="Talk to Jarvis"
-        >
-          ✦ assist
-        </button>
+        <>
+          <button
+            className="assist-toggle"
+            onClick={() => setAssistOpen(true)}
+            aria-label="Talk to Jarvis"
+          >
+            ✦ assist
+          </button>
+          <a className="brain-toggle" href="/brain" aria-label="Open brain map">
+            ◈ brain
+          </a>
+        </>
       )}
       <ConnectionBadge connected={connected} />
     </main>
