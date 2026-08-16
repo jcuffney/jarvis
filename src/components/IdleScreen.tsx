@@ -1,11 +1,13 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { Orb } from './Orb';
+import { RollingText } from './RollingText';
 
 /**
- * Burn-in-safe idle screen: dark background, clock + wordmark drift to a new
- * position every minute. One-tap fullscreen for TV browsers (harmless in
- * kiosk mode, which is already fullscreen).
+ * Burn-in-safe idle screen: the orb + clock drift to a new position every
+ * minute; digits roll odometer-style as time changes. One-tap fullscreen for
+ * TV browsers (harmless in kiosk mode, which is already fullscreen).
  */
 export function IdleScreen() {
   const [now, setNow] = useState<Date | null>(null);
@@ -28,19 +30,28 @@ export function IdleScreen() {
     };
   }, []);
 
+  const time = now
+    ? now.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })
+    : '';
+
   return (
     <div className="idle-screen">
       <div
         className="idle-center"
         style={{ transform: `translate(${drift.x}vmin, ${drift.y}vmin)` }}
       >
-        <div className="idle-wordmark">JARVIS</div>
+        <Orb />
         <div className="idle-clock" suppressHydrationWarning>
-          {now
-            ? now.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })
-            : ' '}
+          {time ? <RollingText text={time} /> : ' '}
         </div>
-        <div className="idle-hint">listening…</div>
+        <div className="idle-hint">
+          listening
+          <span className="idle-dots" aria-hidden="true">
+            <span>.</span>
+            <span>.</span>
+            <span>.</span>
+          </span>
+        </div>
       </div>
       {!fullscreen ? (
         <button

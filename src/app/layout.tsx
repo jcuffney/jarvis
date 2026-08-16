@@ -3,6 +3,7 @@ import '../styles/globals.css';
 import '../styles/themes/gym-dark.css';
 import '../styles/themes/light.css';
 import '../styles/prose.css';
+import '../styles/motion.css';
 
 export const metadata: Metadata = {
   title: 'Jarvis',
