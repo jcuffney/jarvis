@@ -128,6 +128,8 @@ export function AmbientAssist({ children }: { children?: React.ReactNode }) {
 
       pushCaption('user', trimmed);
       setBusy(true);
+      // Lets the rest of the page react while Jarvis reasons (the orb pulses).
+      document.documentElement.dataset.assist = 'busy';
       try {
         const res = await fetch('/api/assist', {
           method: 'POST',
@@ -153,6 +155,7 @@ export function AmbientAssist({ children }: { children?: React.ReactNode }) {
         pushCaption('system', 'could not reach jarvis');
       } finally {
         setBusy(false);
+        delete document.documentElement.dataset.assist;
       }
     },
     [pushCaption, speak],
@@ -225,6 +228,7 @@ export function AmbientAssist({ children }: { children?: React.ReactNode }) {
       recognizer.current?.abort();
       audioRef.current?.pause();
       window.speechSynthesis?.cancel();
+      delete document.documentElement.dataset.assist;
     };
   }, [startListening]);
 
@@ -253,8 +257,10 @@ export function AmbientAssist({ children }: { children?: React.ReactNode }) {
         ))}
         {interim ? <div className="caption caption-user caption-interim">{interim}</div> : null}
         {busy ? (
-          <div className="caption caption-assistant caption-busy">
-            <span className="idle-dots">
+          <div className="caption caption-busy">
+            <span className="caption-tag">JARVIS</span>
+            thinking
+            <span className="idle-dots" aria-hidden="true">
               <span>.</span>
               <span>.</span>
               <span>.</span>

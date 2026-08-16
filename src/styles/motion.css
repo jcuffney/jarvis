@@ -186,6 +186,37 @@
   }
 }
 
+/* ---------- reasoning indicator: the orb works while Jarvis thinks ---------- */
+
+.orb::after {
+  content: '';
+  position: absolute;
+  inset: -6%;
+  border-radius: 50%;
+  border: 2px solid color-mix(in oklab, var(--orb-c1) 70%, white);
+  opacity: 0;
+  pointer-events: none;
+}
+
+[data-assist='busy'] .orb::after {
+  animation: orb-think 1.4s ease-out infinite;
+}
+
+[data-assist='busy'] .orb-halo {
+  animation-duration: 1.6s;
+}
+
+@keyframes orb-think {
+  0% {
+    transform: scale(0.7);
+    opacity: 0.9;
+  }
+  100% {
+    transform: scale(1.25);
+    opacity: 0;
+  }
+}
+
 /* ---------- rolling (odometer) text ---------- */
 
 .roll-cell {

@@ -210,9 +210,21 @@ body {
 }
 
 .caption-busy {
-  font-size: 1.2rem;
-  line-height: 1;
-  color: var(--accent);
+  color: var(--text-muted);
+  border: 1px solid color-mix(in oklab, var(--accent) 30%, transparent);
+  animation:
+    fade-in 250ms ease-out,
+    thinking-shimmer 2s ease-in-out infinite;
+}
+
+@keyframes thinking-shimmer {
+  0%,
+  100% {
+    border-color: color-mix(in oklab, var(--accent) 20%, transparent);
+  }
+  50% {
+    border-color: color-mix(in oklab, var(--accent) 60%, transparent);
+  }
 }
 
 .caption-tag {
