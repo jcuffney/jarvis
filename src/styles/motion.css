@@ -7,83 +7,156 @@
 .orb {
   --orb-c1: var(--accent);
   --orb-c2: var(--orb-secondary, var(--accent));
+  --orb-line: color-mix(in oklab, var(--orb-c1) 75%, white);
   position: relative;
   width: clamp(90px, 18vmin, 260px);
   aspect-ratio: 1;
   margin: 0 auto var(--space-4);
-}
-
-.orb > div {
-  position: absolute;
-  inset: 0;
-  border-radius: 50%;
+  perspective: 700px;
 }
 
 .orb-halo {
+  position: absolute;
   inset: -45%;
+  border-radius: 50%;
   background: radial-gradient(
     circle,
-    color-mix(in oklab, var(--orb-c1) 30%, transparent) 0%,
-    color-mix(in oklab, var(--orb-c2) 12%, transparent) 45%,
+    color-mix(in oklab, var(--orb-c1) 26%, transparent) 0%,
+    color-mix(in oklab, var(--orb-c2) 10%, transparent) 45%,
     transparent 70%
   );
   filter: blur(6px);
   animation: orb-halo-breathe 5s ease-in-out infinite;
 }
 
-.orb-core {
-  background:
-    radial-gradient(circle at 32% 28%, color-mix(in oklab, var(--orb-c1) 45%, white) 0%, transparent 42%),
-    radial-gradient(circle at 70% 75%, color-mix(in oklab, var(--orb-c2) 85%, black) 0%, transparent 60%),
-    radial-gradient(circle at 50% 50%, var(--orb-c1) 25%, color-mix(in oklab, var(--orb-c2) 75%, var(--bg)) 100%);
+/* The gyroscope: the whole ring assembly precesses around a tilted axis.
+   Individual rings are great circles at different tilts; dashed ones also
+   crawl within their own plane on co-prime periods, so the motion never
+   visibly repeats. */
+.orb-gyro {
+  position: absolute;
+  inset: 0;
+  transform-style: preserve-3d;
+  animation: orb-gyro 26s linear infinite;
+}
+
+.orb-ring {
+  position: absolute;
+  inset: 5%;
+  border-radius: 50%;
+  border: 1.5px solid var(--orb-line);
   box-shadow:
-    0 0 7vmin color-mix(in oklab, var(--orb-c1) 35%, transparent),
-    inset 0 0 4vmin color-mix(in oklab, var(--orb-c2) 45%, transparent);
-  animation: orb-breathe 5s ease-in-out infinite;
+    0 0 8px color-mix(in oklab, var(--orb-c1) 55%, transparent),
+    inset 0 0 8px color-mix(in oklab, var(--orb-c1) 35%, transparent);
 }
 
-/* Two counter-rotating rim arcs with co-prime periods, so the pattern never
-   visibly repeats — this is most of the "alive" effect. */
-.orb-sheen {
-  background: conic-gradient(
-    from 0deg,
-    transparent 0deg,
-    color-mix(in oklab, white 60%, var(--orb-c1)) 42deg,
-    transparent 95deg
+.orb-ring-1 {
+  transform: rotateY(4deg);
+}
+
+.orb-ring-2 {
+  border-style: dashed;
+  border-color: color-mix(in oklab, var(--orb-c1) 88%, white);
+  animation: orb-ring-crawl-60 9s linear infinite;
+}
+
+.orb-ring-3 {
+  border-color: color-mix(in oklab, var(--orb-c2) 70%, white);
+  box-shadow:
+    0 0 8px color-mix(in oklab, var(--orb-c2) 55%, transparent),
+    inset 0 0 8px color-mix(in oklab, var(--orb-c2) 35%, transparent);
+  transform: rotateY(120deg);
+}
+
+.orb-ring-4 {
+  border-width: 1px;
+  opacity: 0.55;
+  transform: rotateY(88deg);
+}
+
+.orb-ring-eq {
+  inset: 9%;
+  border-style: dashed;
+  opacity: 0.9;
+  animation: orb-ring-crawl-eq 13s linear infinite;
+}
+
+.orb-ring-eq2 {
+  inset: 24%;
+  border-width: 1px;
+  opacity: 0.7;
+  transform: rotateX(64deg);
+}
+
+/* Node dots riding the rings — they orbit as the gyro precesses. */
+.orb-ring-2::before,
+.orb-ring-eq::before {
+  content: '';
+  position: absolute;
+  top: -4px;
+  left: 50%;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: color-mix(in oklab, white 65%, var(--orb-c1));
+  box-shadow: 0 0 10px 2px color-mix(in oklab, var(--orb-c1) 80%, transparent);
+}
+
+.orb-core {
+  position: absolute;
+  inset: 37%;
+  border-radius: 50%;
+  background: radial-gradient(
+    circle,
+    color-mix(in oklab, white 75%, var(--orb-c1)) 0%,
+    color-mix(in oklab, var(--orb-c1) 70%, white) 30%,
+    var(--orb-c1) 55%,
+    color-mix(in oklab, var(--orb-c2) 55%, transparent) 80%,
+    transparent 100%
   );
-  -webkit-mask: radial-gradient(circle, transparent 52%, #000 62%, #000 72%, transparent 80%);
-  mask: radial-gradient(circle, transparent 52%, #000 62%, #000 72%, transparent 80%);
-  opacity: 0.85;
-  mix-blend-mode: screen;
+  filter: blur(0.5px);
+  box-shadow: 0 0 5vmin color-mix(in oklab, var(--orb-c1) 60%, transparent);
+  animation: orb-breathe 4s ease-in-out infinite;
 }
 
-.orb-sheen-a {
-  animation: orb-spin 7s linear infinite;
+@keyframes orb-gyro {
+  from {
+    transform: rotateX(-16deg) rotateZ(7deg) rotateY(0deg);
+  }
+  to {
+    transform: rotateX(-16deg) rotateZ(7deg) rotateY(360deg);
+  }
 }
 
-.orb-sheen-b {
-  background: conic-gradient(
-    from 180deg,
-    transparent 0deg,
-    color-mix(in oklab, white 40%, var(--orb-c2)) 55deg,
-    transparent 120deg
-  );
-  animation: orb-spin-rev 11s linear infinite;
+/* Dashed rings crawl within their own tilted plane (tilt + rotateZ must live
+   in one transform, so each tilt gets its own keyframes). */
+@keyframes orb-ring-crawl-60 {
+  from {
+    transform: rotateY(60deg) rotateZ(0deg);
+  }
+  to {
+    transform: rotateY(60deg) rotateZ(360deg);
+  }
 }
 
-.orb-highlight {
-  background: radial-gradient(circle at 33% 28%, rgba(255, 255, 255, 0.65), transparent 28%);
-  filter: blur(2px);
-  animation: orb-breathe 5s ease-in-out infinite reverse;
+@keyframes orb-ring-crawl-eq {
+  from {
+    transform: rotateX(78deg) rotateZ(360deg);
+  }
+  to {
+    transform: rotateX(78deg) rotateZ(0deg);
+  }
 }
 
 @keyframes orb-breathe {
   0%,
   100% {
     transform: scale(1);
+    opacity: 0.95;
   }
   50% {
-    transform: scale(1.045);
+    transform: scale(1.09);
+    opacity: 1;
   }
 }
 
@@ -96,18 +169,6 @@
   50% {
     transform: scale(1.12);
     opacity: 1;
-  }
-}
-
-@keyframes orb-spin {
-  to {
-    transform: rotate(360deg);
-  }
-}
-
-@keyframes orb-spin-rev {
-  to {
-    transform: rotate(-360deg);
   }
 }
 
@@ -201,7 +262,7 @@
 /* ---------- accessibility ---------- */
 
 @media (prefers-reduced-motion: reduce) {
-  .orb > div,
+  .orb div,
   .roll-in,
   .roll-out,
   .idle-dots span,
