@@ -185,9 +185,69 @@ body {
   opacity: 1;
 }
 
-/* ---------- assist mode ---------- */
+/* ---------- ambient assist: captions + mic chip ---------- */
 
-.assist-toggle {
+.captions {
+  position: fixed;
+  bottom: 8vmin;
+  left: 50%;
+  transform: translateX(-50%);
+  width: min(92vw, 46rem);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-1);
+  pointer-events: none;
+  z-index: 10;
+}
+
+.caption {
+  max-width: 100%;
+  padding: 0.35em 0.9em;
+  border-radius: var(--radius);
+  background: color-mix(in oklab, var(--bg) 72%, transparent);
+  backdrop-filter: blur(6px);
+  font-size: 1.05rem;
+  line-height: 1.35;
+  text-align: center;
+  text-wrap: balance;
+  animation: fade-in 250ms ease-out;
+}
+
+.caption-user {
+  color: var(--text-muted);
+}
+
+.caption-assistant {
+  color: var(--text);
+}
+
+.caption-system {
+  color: var(--text-muted);
+  font-size: 0.85rem;
+  font-style: italic;
+}
+
+.caption-interim {
+  opacity: 0.55;
+}
+
+.caption-busy {
+  font-size: 1.2rem;
+  line-height: 1;
+  color: var(--accent);
+}
+
+.caption-tag {
+  color: var(--accent);
+  font-size: 0.7em;
+  font-weight: 650;
+  letter-spacing: 0.15em;
+  margin-right: 0.8em;
+  vertical-align: 0.1em;
+}
+
+.mic-chip {
   position: fixed;
   bottom: 2vmin;
   left: 2vmin;
@@ -199,176 +259,27 @@ body {
   font-size: 0.7rem;
   cursor: pointer;
   opacity: 0.6;
+  z-index: 11;
 }
 
-.assist-toggle:hover {
+.mic-chip:hover {
   opacity: 1;
 }
 
-.assist-panel {
-  position: fixed;
-  bottom: 2vmin;
-  left: 2vmin;
-  width: min(92vw, 34rem);
-  max-height: 70vh;
-  display: flex;
-  flex-direction: column;
-  background: color-mix(in oklab, var(--surface) 88%, transparent);
-  backdrop-filter: blur(12px);
-  border: 1px solid var(--border);
-  border-radius: calc(var(--radius) * 2);
-  box-shadow: 0 1vmin 4vmin rgb(0 0 0 / 0.45);
-  animation: fade-in 250ms ease-out;
-  z-index: 10;
-}
-
-.assist-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: var(--space-2) var(--space-3);
-  border-bottom: 1px solid var(--border);
-}
-
-.assist-title {
-  font-size: 0.8rem;
-  font-weight: 600;
-  letter-spacing: 0.2em;
-  text-transform: uppercase;
+.mic-chip-live {
   color: var(--accent);
-}
-
-.assist-close {
-  background: none;
-  border: none;
-  color: var(--text-muted);
-  font-size: 0.9rem;
-  cursor: pointer;
-  padding: 0.2em 0.4em;
-}
-
-.assist-close:hover {
-  color: var(--text);
-}
-
-.assist-transcript {
-  flex: 1;
-  overflow-y: auto;
-  padding: var(--space-3);
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-2);
-  min-height: 8rem;
-}
-
-.assist-empty {
-  color: var(--text-muted);
-  font-size: 0.85rem;
-  text-align: center;
-  margin: auto;
-}
-
-.assist-msg {
-  max-width: 85%;
-  padding: 0.5em 0.8em;
-  border-radius: var(--radius);
-  font-size: 0.95rem;
-  line-height: 1.35;
-  animation: fade-in 200ms ease-out;
-}
-
-.assist-msg-user {
-  align-self: flex-end;
-  background: var(--accent);
-  color: var(--accent-contrast);
-}
-
-.assist-msg-assistant {
-  align-self: flex-start;
-  background: color-mix(in oklab, var(--border) 45%, var(--surface));
-  color: var(--text);
-}
-
-.assist-msg-interim {
-  opacity: 0.6;
-}
-
-.assist-msg-busy {
-  font-size: 1.1rem;
-  line-height: 1;
-}
-
-.assist-error {
-  color: var(--warning, #f5a97f);
-  font-size: 0.8rem;
-  text-align: center;
-}
-
-.assist-input-row {
-  display: flex;
-  gap: var(--space-2);
-  padding: var(--space-2) var(--space-3) var(--space-3);
-}
-
-.assist-mic {
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: 50%;
-  width: 2.4em;
-  height: 2.4em;
-  font-size: 1rem;
-  cursor: pointer;
-  color: var(--text);
-  flex-shrink: 0;
-}
-
-.assist-mic-live {
-  border-color: var(--accent);
-  color: var(--accent);
-  animation: mic-pulse 1.2s ease-in-out infinite;
+  border-color: color-mix(in oklab, var(--accent) 45%, var(--border));
+  animation: mic-pulse 2.4s ease-in-out infinite;
 }
 
 @keyframes mic-pulse {
   0%,
   100% {
-    box-shadow: 0 0 0 0 color-mix(in oklab, var(--accent) 45%, transparent);
+    box-shadow: 0 0 0 0 color-mix(in oklab, var(--accent) 35%, transparent);
   }
   50% {
-    box-shadow: 0 0 0 0.5em transparent;
+    box-shadow: 0 0 0 0.45em transparent;
   }
-}
-
-.assist-text {
-  flex: 1;
-  background: var(--bg);
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  color: var(--text);
-  padding: 0.5em 0.8em;
-  font-size: 0.95rem;
-  min-width: 0;
-}
-
-.assist-text:focus {
-  outline: none;
-  border-color: var(--accent);
-}
-
-.assist-send {
-  background: var(--accent);
-  color: var(--accent-contrast);
-  border: none;
-  border-radius: var(--radius);
-  padding: 0.5em 1em;
-  font-size: 0.9rem;
-  font-weight: 600;
-  cursor: pointer;
-  flex-shrink: 0;
-}
-
-.assist-send:disabled {
-  opacity: 0.4;
-  cursor: default;
 }
 
 /* ---------- connection badge ---------- */

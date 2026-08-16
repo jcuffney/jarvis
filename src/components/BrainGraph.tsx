@@ -10,6 +10,7 @@ import {
   type Simulation,
   type SimulationNodeDatum,
 } from 'd3-force';
+import { AmbientAssist } from './AmbientAssist';
 
 interface GraphNode extends SimulationNodeDatum {
   id: string;
@@ -274,6 +275,7 @@ export function BrainGraph() {
       <a className="brain-back" href="/">
         ← display
       </a>
+      <AmbientAssist />
     </div>
   );
 }

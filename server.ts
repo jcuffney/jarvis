@@ -5,6 +5,7 @@ import type { Duplex } from 'node:stream';
 import { WebSocketServer, type WebSocket } from 'ws';
 import { store } from './src/lib/store';
 import { buildBrainGraph, invalidateBrainCache } from './src/lib/brain';
+import { synthesizeWav } from './src/lib/wyoming';
 import { sanitizeDisplayHtml } from './src/lib/sanitize';
 import { isAuthorized } from './src/lib/auth';
 import type { DisplayState, ServerMessage } from './src/lib/protocol';
@@ -31,6 +32,13 @@ const ASSIST_TIMEOUT_MS = 60_000; // LLM-backed agents can be slow
 // Second-brain graph (GET /api/brain/graph). BRAIN_DIR points at the vault
 // (read-only NFS mount in production); unset disables with a 503.
 const BRAIN_DIR = process.env.BRAIN_DIR ?? '';
+
+// Wyoming TTS (POST /api/tts): the Jarvis voice. Default is piper's
+// jarvis-medium — CPU-resident, zero VRAM, can't OOM the LLM. Swap
+// TTS_PORT/TTS_VOICE to 10202/10201 + "jarvis" for the film-clip clones.
+const TTS_HOST = process.env.TTS_HOST ?? '';
+const TTS_PORT = Number(process.env.TTS_PORT ?? 10200);
+const TTS_VOICE = process.env.TTS_VOICE ?? 'jarvis-medium';
 
 type RequestHandler = (req: IncomingMessage, res: ServerResponse) => Promise<void> | void;
 type UpgradeHandler = (req: IncomingMessage, socket: Duplex, head: Buffer) => Promise<void> | void;
@@ -228,6 +236,37 @@ async function handleApi(req: IncomingMessage, res: ServerResponse, pathname: st
 
   if (pathname === '/api/assist') {
     await handleAssist(req, res);
+    return;
+  }
+
+  // Viewer-facing (same trust model as /api/assist): text → Jarvis-voice WAV.
+  if (pathname === '/api/tts') {
+    if (req.method !== 'POST') {
+      sendJson(res, 405, { error: 'method not allowed' });
+      return;
+    }
+    if (!TTS_HOST) {
+      sendJson(res, 503, { error: 'tts not configured — missing TTS_HOST' });
+      return;
+    }
+    const result = await readJsonBody(req);
+    if (!result.ok) {
+      sendJson(res, result.status, { error: result.error });
+      return;
+    }
+    const body = result.body as Record<string, unknown>;
+    if (typeof body?.text !== 'string' || body.text.trim() === '') {
+      sendJson(res, 400, { error: 'text (non-empty string) is required' });
+      return;
+    }
+    try {
+      const wav = await synthesizeWav(TTS_HOST, TTS_PORT, body.text.slice(0, 2000), TTS_VOICE);
+      res.writeHead(200, { 'content-type': 'audio/wav', 'content-length': wav.length });
+      res.end(wav);
+    } catch (err) {
+      console.error('[tts] synthesis failed:', err);
+      sendJson(res, 502, { error: 'tts synthesis failed' });
+    }
     return;
   }
 
