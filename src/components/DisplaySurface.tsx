@@ -1,16 +1,18 @@
 'use client';
 
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useDisplaySocket } from '../hooks/useDisplaySocket';
 import { JarvisProse } from './JarvisProse';
 import { IdleScreen } from './IdleScreen';
 import { ConnectionBadge } from './ConnectionBadge';
+import { AssistPanel } from './AssistPanel';
 
-const KNOWN_THEMES = new Set(['gym-dark', 'light']);
+const KNOWN_THEMES = new Set(['gym-dark', 'ultron', 'light']);
 const DEFAULT_THEME = 'gym-dark';
 
 export function DisplaySurface() {
   const { state, connected } = useDisplaySocket();
+  const [assistOpen, setAssistOpen] = useState(false);
 
   useEffect(() => {
     const requested = state.mode === 'content' ? state.theme : undefined;
@@ -28,6 +30,17 @@ export function DisplaySurface() {
           {state.title ? <header className="display-title">{state.title}</header> : null}
           <JarvisProse html={state.html} />
         </section>
+      )}
+      {assistOpen ? (
+        <AssistPanel onClose={() => setAssistOpen(false)} />
+      ) : (
+        <button
+          className="assist-toggle"
+          onClick={() => setAssistOpen(true)}
+          aria-label="Talk to Jarvis"
+        >
+          ✦ assist
+        </button>
       )}
       <ConnectionBadge connected={connected} />
     </main>

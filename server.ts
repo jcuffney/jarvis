@@ -20,6 +20,13 @@ const MAX_BODY_BYTES = 256 * 1024;
 const MAX_DURATION_SEC = 24 * 60 * 60;
 const HEARTBEAT_MS = 30_000;
 
+// Optional Home Assistant Assist bridge (POST /api/assist). Unset HA_TOKEN
+// disables it with a 503 — the display still works standalone.
+const HA_URL = (process.env.HA_URL ?? '').replace(/\/$/, '');
+const HA_TOKEN = process.env.HA_TOKEN ?? '';
+const HA_AGENT_ID = process.env.HA_AGENT_ID ?? '';
+const ASSIST_TIMEOUT_MS = 60_000; // LLM-backed agents can be slow
+
 type RequestHandler = (req: IncomingMessage, res: ServerResponse) => Promise<void> | void;
 type UpgradeHandler = (req: IncomingMessage, socket: Duplex, head: Buffer) => Promise<void> | void;
 
@@ -143,9 +150,76 @@ function serveNextStatic(res: ServerResponse, pathname: string): boolean {
 
 // ---------- REST API ----------
 
+/**
+ * Browser-facing bridge to Home Assistant's conversation API. Deliberately
+ * NOT behind the producer bearer token: the TV/kiosk can't hold secrets, and
+ * the vhost is LAN/VPN-only — same trust model as a voice satellite on the
+ * network. The HA token stays server-side.
+ */
+async function handleAssist(req: IncomingMessage, res: ServerResponse): Promise<void> {
+  if (req.method !== 'POST') {
+    sendJson(res, 405, { error: 'method not allowed' });
+    return;
+  }
+  if (!HA_URL || !HA_TOKEN) {
+    sendJson(res, 503, { error: 'assist not configured (set HA_URL and HA_TOKEN)' });
+    return;
+  }
+  const result = await readJsonBody(req);
+  if (!result.ok) {
+    sendJson(res, result.status, { error: result.error });
+    return;
+  }
+  const body = result.body as Record<string, unknown>;
+  if (typeof body?.text !== 'string' || body.text.trim() === '') {
+    sendJson(res, 400, { error: 'text (non-empty string) is required' });
+    return;
+  }
+  try {
+    const haResponse = await fetch(`${HA_URL}/api/conversation/process`, {
+      method: 'POST',
+      headers: {
+        authorization: `Bearer ${HA_TOKEN}`,
+        'content-type': 'application/json',
+      },
+      body: JSON.stringify({
+        text: body.text,
+        ...(typeof body.conversationId === 'string' ? { conversation_id: body.conversationId } : {}),
+        ...(HA_AGENT_ID ? { agent_id: HA_AGENT_ID } : {}),
+      }),
+      signal: AbortSignal.timeout(ASSIST_TIMEOUT_MS),
+    });
+    if (!haResponse.ok) {
+      console.error(`[assist] HA returned ${haResponse.status}`);
+      sendJson(res, 502, { error: `home assistant returned ${haResponse.status}` });
+      return;
+    }
+    const data = (await haResponse.json()) as {
+      conversation_id?: string;
+      response?: {
+        response_type?: string;
+        speech?: { plain?: { speech?: string } };
+      };
+    };
+    sendJson(res, 200, {
+      speech: data.response?.speech?.plain?.speech ?? '',
+      responseType: data.response?.response_type ?? 'unknown',
+      conversationId: data.conversation_id,
+    });
+  } catch (err) {
+    console.error('[assist] request failed:', err);
+    sendJson(res, 502, { error: 'could not reach home assistant' });
+  }
+}
+
 async function handleApi(req: IncomingMessage, res: ServerResponse, pathname: string): Promise<void> {
   if (pathname === '/api/healthz') {
     sendJson(res, 200, { ok: true });
+    return;
+  }
+
+  if (pathname === '/api/assist') {
+    await handleAssist(req, res);
     return;
   }
 

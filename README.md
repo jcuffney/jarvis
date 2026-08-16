@@ -69,6 +69,29 @@ or plain — are transformed client-side into embedded players constructed by
 our own code, with the original link kept visible as a fallback for videos
 that disallow embedding.
 
+## Assist mode
+
+The display is a heads-up display by default. The `✦ assist` corner button
+(twin of the fullscreen affordance) opens an overlay that talks to Home
+Assistant's Assist agent: mic input via the browser's SpeechRecognition
+(hidden if unsupported), text input always, replies in a transcript and
+spoken via speechSynthesis. The HUD keeps updating underneath.
+
+Backend: `POST /api/assist {text, conversationId?}` proxies to
+`$HA_URL/api/conversation/process` with the server-held `$HA_TOKEN`
+(long-lived HA access token; `HA_AGENT_ID` optionally pins a specific
+conversation agent). Unset → 503 and the button still renders but reports
+assist as unconfigured.
+
+Trust model: `/api/assist` is deliberately NOT behind the producer bearer
+token — the TV/kiosk can't hold secrets. The vhost is LAN/VPN-only, so this
+is the same exposure as a voice satellite speaker on the network. Anyone on
+the LAN can talk to the agent; the HA token itself never leaves the server.
+
+Kiosk note: Chromium needs mic permission — add
+`--use-fake-ui-for-media-stream` (auto-grants) or grant once in the profile.
+SpeechRecognition in Chromium uses Google's speech service (needs internet).
+
 ## Theming
 
 Themes are CSS custom-property sets under `[data-theme="<name>"]` in

@@ -13,6 +13,8 @@
   aspect-ratio: 1;
   margin: 0 auto var(--space-4);
   perspective: 700px;
+  /* Latitude-ring geometry below is computed in cqmin units. */
+  container-type: size;
 }
 
 .orb-halo {
@@ -42,64 +44,76 @@
 
 .orb-ring {
   position: absolute;
-  inset: 5%;
   border-radius: 50%;
-  border: 1.5px solid var(--orb-line);
+  border: 1px solid var(--orb-line);
   box-shadow:
-    0 0 8px color-mix(in oklab, var(--orb-c1) 55%, transparent),
-    inset 0 0 8px color-mix(in oklab, var(--orb-c1) 35%, transparent);
+    0 0 5px color-mix(in oklab, var(--orb-c1) 40%, transparent),
+    inset 0 0 5px color-mix(in oklab, var(--orb-c1) 25%, transparent);
 }
 
-.orb-ring-1 {
-  transform: rotateY(4deg);
+/* Longitude great-circles (tilt applied inline per ring). Alternating
+   weights keep the lattice from reading flat. */
+.orb-long {
+  inset: 5%;
+  opacity: 0.75;
 }
 
-.orb-ring-2 {
+.orb-long:nth-of-type(odd) {
+  border-width: 0.5px;
+  opacity: 0.5;
+}
+
+.orb-long:nth-of-type(4) {
+  border-color: color-mix(in oklab, var(--orb-c2) 80%, white);
   border-style: dashed;
-  border-color: color-mix(in oklab, var(--orb-c1) 88%, white);
-  animation: orb-ring-crawl-60 9s linear infinite;
+  opacity: 0.95;
 }
 
-.orb-ring-3 {
-  border-color: color-mix(in oklab, var(--orb-c2) 70%, white);
-  box-shadow:
-    0 0 8px color-mix(in oklab, var(--orb-c2) 55%, transparent),
-    inset 0 0 8px color-mix(in oklab, var(--orb-c2) 35%, transparent);
-  transform: rotateY(120deg);
+/* Latitude rings: circle of radius √(r² − z²) pushed to height z (r = 45cqmin,
+   z = 28cqmin → 35.2cqmin). cqmin keeps the geometry exact at any orb size. */
+.orb-lat {
+  left: 50%;
+  top: 50%;
 }
 
-.orb-ring-4 {
-  border-width: 1px;
-  opacity: 0.55;
-  transform: rotateY(88deg);
-}
-
-.orb-ring-eq {
-  inset: 9%;
+.orb-lat-eq {
+  width: 90cqmin;
+  height: 90cqmin;
+  margin: -45cqmin 0 0 -45cqmin;
   border-style: dashed;
+  border-color: color-mix(in oklab, var(--orb-c2) 85%, white);
   opacity: 0.9;
   animation: orb-ring-crawl-eq 13s linear infinite;
 }
 
-.orb-ring-eq2 {
-  inset: 24%;
-  border-width: 1px;
-  opacity: 0.7;
-  transform: rotateX(64deg);
+.orb-lat-n {
+  width: 70cqmin;
+  height: 70cqmin;
+  margin: -35cqmin 0 0 -35cqmin;
+  transform: rotateX(90deg) translateZ(28cqmin);
+  opacity: 0.6;
 }
 
-/* Node dots riding the rings — they orbit as the gyro precesses. */
-.orb-ring-2::before,
-.orb-ring-eq::before {
+.orb-lat-s {
+  width: 70cqmin;
+  height: 70cqmin;
+  margin: -35cqmin 0 0 -35cqmin;
+  transform: rotateX(90deg) translateZ(-28cqmin);
+  opacity: 0.6;
+}
+
+/* Node dots riding the equator + one longitude — they orbit as the gyro precesses. */
+.orb-lat-eq::before,
+.orb-long:nth-of-type(4)::before {
   content: '';
   position: absolute;
-  top: -4px;
+  top: -3px;
   left: 50%;
-  width: 7px;
-  height: 7px;
+  width: 6px;
+  height: 6px;
   border-radius: 50%;
   background: color-mix(in oklab, white 65%, var(--orb-c1));
-  box-shadow: 0 0 10px 2px color-mix(in oklab, var(--orb-c1) 80%, transparent);
+  box-shadow: 0 0 9px 2px color-mix(in oklab, var(--orb-c1) 80%, transparent);
 }
 
 .orb-core {

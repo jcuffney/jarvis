@@ -1,15 +1,15 @@
-/* Default theme: dark, high-contrast, one loud accent. Near-black (not #000)
-   to be kinder to OLED/plasma-adjacent panels. */
+/* Default theme: movie-JARVIS black & blue — near-black bg (kinder to OLED
+   panels than #000), electric-blue accent, cyan orb duotone. */
 
 [data-theme='gym-dark'] {
-  --bg: #0d0f12;
-  --surface: #16191f;
-  --text: #f2f4f8;
-  --text-muted: #8b93a1;
-  --accent: #ff5d3a;
-  --accent-contrast: #ffffff;
-  --orb-secondary: #ffb547; /* JARVIS amber — duotone partner for the orb */
-  --border: #2a2f38;
+  --bg: #0a0e14;
+  --surface: #121826;
+  --text: #eef4fb;
+  --text-muted: #7e8ca1;
+  --accent: #38bdf8;
+  --accent-contrast: #041018;
+  --orb-secondary: #9be8ff; /* pale cyan — duotone partner for the orb */
+  --border: #223047;
   --warning: #f5a97f;
   --radius: 0.5rem;
   --space-1: 0.25rem;
