@@ -167,7 +167,10 @@ async function handleAssist(req: IncomingMessage, res: ServerResponse): Promise<
     return;
   }
   if (!HA_URL || !HA_TOKEN) {
-    sendJson(res, 503, { error: 'assist not configured (set HA_URL and HA_TOKEN)' });
+    const missing = [!HA_URL && 'HA_URL', !HA_TOKEN && 'HA_TOKEN (jarvis-ha secret)']
+      .filter(Boolean)
+      .join(' + ');
+    sendJson(res, 503, { error: `assist not configured — missing ${missing}` });
     return;
   }
   const result = await readJsonBody(req);
