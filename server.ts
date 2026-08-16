@@ -1,6 +1,6 @@
 import { createServer, type IncomingMessage, type ServerResponse } from 'node:http';
-import { readFileSync } from 'node:fs';
-import { join } from 'node:path';
+import { createReadStream, existsSync, readFileSync, statSync } from 'node:fs';
+import { extname, join, normalize, sep } from 'node:path';
 import type { Duplex } from 'node:stream';
 import { WebSocketServer, type WebSocket } from 'ws';
 import { store } from './src/lib/store';
@@ -53,13 +53,14 @@ async function createNextHandlers(): Promise<{
   // than TS's view of it (interop puts module.exports at .default).
   const NextServer = ((mod.default as unknown as { default?: typeof mod.default }).default ??
     mod.default) as typeof mod.default;
+  // No customServer flag: that tells NextServer someone else serves
+  // /_next/static, and everything under it 404s (found the hard way).
   const app = new NextServer({
     dev: false,
     dir: process.cwd(),
     conf: config,
     hostname: '0.0.0.0',
     port,
-    customServer: true,
   });
   return { handleRequest: app.getRequestHandler() as unknown as RequestHandler, handleUpgrade: null };
 }
@@ -98,6 +99,46 @@ function readJsonBody(req: IncomingMessage): Promise<{ ok: true; body: unknown }
     });
     req.on('error', () => resolve({ ok: false, status: 400, error: 'request aborted' }));
   });
+}
+
+// ---------- /_next/static (production only) ----------
+// In standalone output, Next's own startServer() serves these from a router
+// layer that sits OUTSIDE NextServer — hosting NextServer directly leaves
+// them 404ing. They're content-hashed immutable files, so serve them here.
+
+const STATIC_ROOT = join(process.cwd(), '.next', 'static');
+const STATIC_MIME: Record<string, string> = {
+  '.js': 'text/javascript; charset=utf-8',
+  '.css': 'text/css; charset=utf-8',
+  '.map': 'application/json',
+  '.json': 'application/json',
+  '.woff2': 'font/woff2',
+  '.svg': 'image/svg+xml',
+  '.png': 'image/png',
+  '.jpg': 'image/jpeg',
+  '.txt': 'text/plain; charset=utf-8',
+};
+
+function serveNextStatic(res: ServerResponse, pathname: string): boolean {
+  if (dev || !pathname.startsWith('/_next/static/')) return false;
+  const rel = normalize(decodeURIComponent(pathname.slice('/_next/static/'.length)));
+  const file = join(STATIC_ROOT, rel);
+  if (!file.startsWith(STATIC_ROOT + sep) || file.includes('\0')) {
+    res.writeHead(400);
+    res.end();
+    return true;
+  }
+  if (!existsSync(file) || !statSync(file).isFile()) {
+    res.writeHead(404);
+    res.end();
+    return true;
+  }
+  res.writeHead(200, {
+    'content-type': STATIC_MIME[extname(file)] ?? 'application/octet-stream',
+    'cache-control': 'public, max-age=31536000, immutable',
+  });
+  createReadStream(file).pipe(res);
+  return true;
 }
 
 // ---------- REST API ----------
@@ -220,6 +261,7 @@ createNextHandlers().then(({ handleRequest, handleUpgrade }) => {
       void handleApi(req, res, pathname);
       return;
     }
+    if (serveNextStatic(res, pathname)) return;
     void handleRequest(req, res);
   });
 
