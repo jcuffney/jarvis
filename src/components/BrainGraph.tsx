@@ -272,10 +272,11 @@ export function BrainGraph() {
       ) : (
         <div className="brain-meta">{noteCount} notes</div>
       )}
-      <a className="brain-back" href="/">
-        ← display
-      </a>
-      <AmbientAssist />
+      <AmbientAssist>
+        <a className="chip" href="/" aria-label="Back to display">
+          ← display
+        </a>
+      </AmbientAssist>
     </div>
   );
 }

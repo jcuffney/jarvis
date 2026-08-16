@@ -30,10 +30,11 @@ export function DisplaySurface() {
           <JarvisProse html={state.html} />
         </section>
       )}
-      <AmbientAssist />
-      <a className="brain-toggle" href="/brain" aria-label="Open brain map">
-        ◈ brain
-      </a>
+      <AmbientAssist>
+        <a className="chip" href="/brain" aria-label="Open brain map">
+          ◈ brain
+        </a>
+      </AmbientAssist>
       <ConnectionBadge connected={connected} />
     </main>
   );

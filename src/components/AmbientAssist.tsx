@@ -48,7 +48,7 @@ const NAV_HOME = /\b(?:show|open|go to|back to|display)\b.*\b(?:display|dashboar
  * the Wyoming Jarvis voice (/api/tts; browser speechSynthesis fallback).
  * Voice nav: "show the brain map" / "back to the display".
  */
-export function AmbientAssist() {
+export function AmbientAssist({ children }: { children?: React.ReactNode }) {
   const [captions, setCaptions] = useState<Caption[]>([]);
   const [interim, setInterim] = useState('');
   const [mic, setMic] = useState<MicState>('unavailable');
@@ -262,15 +262,18 @@ export function AmbientAssist() {
           </div>
         ) : null}
       </div>
-      {mic !== 'unavailable' ? (
-        <button
-          className={`mic-chip${mic === 'listening' ? ' mic-chip-live' : ''}`}
-          onClick={toggleMic}
-          aria-label={mic === 'listening' ? 'Mute microphone' : 'Unmute microphone'}
-        >
-          {mic === 'listening' ? '🎙 listening' : '🎙 muted'}
-        </button>
-      ) : null}
+      <div className="corner-left">
+        {mic !== 'unavailable' ? (
+          <button
+            className={`chip mic-chip${mic === 'listening' ? ' mic-chip-live' : ''}`}
+            onClick={toggleMic}
+            aria-label={mic === 'listening' ? 'Mute microphone' : 'Unmute microphone'}
+          >
+            {mic === 'listening' ? '🎙 listening' : '🎙 muted'}
+          </button>
+        ) : null}
+        {children}
+      </div>
     </>
   );
 }

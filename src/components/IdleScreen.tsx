@@ -44,18 +44,10 @@ export function IdleScreen() {
         <div className="idle-clock" suppressHydrationWarning>
           {time ? <RollingText text={time} /> : ' '}
         </div>
-        <div className="idle-hint">
-          listening
-          <span className="idle-dots" aria-hidden="true">
-            <span>.</span>
-            <span>.</span>
-            <span>.</span>
-          </span>
-        </div>
       </div>
       {!fullscreen ? (
         <button
-          className="idle-fullscreen"
+          className="chip idle-fullscreen"
           onClick={() => document.documentElement.requestFullscreen().catch(() => {})}
         >
           ⛶ fullscreen
