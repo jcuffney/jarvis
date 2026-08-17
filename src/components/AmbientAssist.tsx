@@ -39,7 +39,8 @@ type MicState = 'listening' | 'muted' | 'unavailable';
 
 const CAPTION_TTL_MS = 9_000;
 const NAV_BRAIN = /\b(?:show|open|go to|display|pull up)\b.*\bbrain\b/i;
-const NAV_HOME = /\b(?:show|open|go to|back to|display)\b.*\b(?:display|dashboard|home|hud)\b/i;
+const NAV_HOME =
+  /\bgo (?:back|home)\b|\btake me (?:back|home)\b|\b(?:show|open|go to|back to|return to|display)\b.*\b(?:display|dashboard|home|hud|main)\b/i;
 
 /**
  * The ambient voice layer: always listening on devices with a microphone
@@ -56,6 +57,9 @@ export function AmbientAssist({ children }: { children?: React.ReactNode }) {
   const conversationId = useRef<string | undefined>(undefined);
   const recognizer = useRef<SpeechRecognitionLike | null>(null);
   const mutedRef = useRef(false);
+  // Half-duplex: recognition is suspended while Jarvis speaks, or the mic
+  // hears the reply and feeds it back in as input (no AEC in the browser).
+  const speakingRef = useRef(false);
   const captionSeq = useRef(0);
   const audioRef = useRef<HTMLAudioElement | null>(null);
 
@@ -69,6 +73,26 @@ export function AmbientAssist({ children }: { children?: React.ReactNode }) {
 
   const speak = useCallback(
     async (text: string) => {
+      const gate = () => {
+        speakingRef.current = true;
+        recognizer.current?.abort(); // drop any audio already in flight
+        setInterim('');
+      };
+      const doneSpeaking = () => {
+        if (!speakingRef.current) return;
+        speakingRef.current = false;
+        // Small tail so room reverb of the reply isn't re-captured.
+        setTimeout(() => {
+          if (!mutedRef.current) {
+            try {
+              recognizer.current?.start();
+            } catch {
+              /* already started */
+            }
+          }
+        }, 400);
+      };
+      gate();
       let audio: HTMLAudioElement | null = null;
       try {
         const res = await fetch('/api/tts', {
@@ -82,12 +106,21 @@ export function AmbientAssist({ children }: { children?: React.ReactNode }) {
         audioRef.current?.pause();
         audio = new Audio(url);
         audioRef.current = audio;
-        audio.onended = () => URL.revokeObjectURL(url);
+        audio.onended = () => {
+          URL.revokeObjectURL(url);
+          doneSpeaking();
+        };
+        audio.onerror = doneSpeaking;
       } catch {
         // Wyoming unavailable — browser voice fallback.
         if (window.speechSynthesis) {
           window.speechSynthesis.cancel();
-          window.speechSynthesis.speak(new SpeechSynthesisUtterance(text));
+          const utterance = new SpeechSynthesisUtterance(text);
+          utterance.onend = doneSpeaking;
+          utterance.onerror = doneSpeaking;
+          window.speechSynthesis.speak(utterance);
+        } else {
+          doneSpeaking();
         }
         return;
       }
@@ -95,13 +128,17 @@ export function AmbientAssist({ children }: { children?: React.ReactNode }) {
         await audio.play();
       } catch {
         // Autoplay blocked: browsers require one interaction before sound.
-        // Park the reply and release it on the next tap/keypress.
+        // Park the reply and release it on the next tap/keypress. Nothing is
+        // audible while parked, so listening may resume immediately.
+        doneSpeaking();
         pendingAudio.current = audio;
         pushCaption('system', 'tap anywhere to enable audio');
         const unlock = () => {
           const parked = pendingAudio.current;
           pendingAudio.current = null;
-          void parked?.play().catch(() => {});
+          if (!parked) return;
+          gate(); // suspend the mic again while the parked reply plays
+          void parked.play().catch(doneSpeaking);
         };
         window.addEventListener('pointerdown', unlock, { once: true });
         window.addEventListener('keydown', unlock, { once: true });
@@ -172,6 +209,7 @@ export function AmbientAssist({ children }: { children?: React.ReactNode }) {
     rec.continuous = true;
     rec.interimResults = true;
     rec.onresult = (event) => {
+      if (speakingRef.current) return; // Jarvis is talking — ignore echoes
       let interimText = '';
       for (let i = event.resultIndex; i < event.results.length; i += 1) {
         const result = event.results[i];
@@ -188,10 +226,11 @@ export function AmbientAssist({ children }: { children?: React.ReactNode }) {
     };
     rec.onend = () => {
       setInterim('');
-      // Continuous recognition times out on silence — keep it alive.
-      if (!mutedRef.current) {
+      // Continuous recognition times out on silence — keep it alive, but not
+      // while Jarvis speaks (doneSpeaking restarts it afterwards).
+      if (!mutedRef.current && !speakingRef.current) {
         setTimeout(() => {
-          if (!mutedRef.current) {
+          if (!mutedRef.current && !speakingRef.current) {
             try {
               recognizer.current?.start();
             } catch {
