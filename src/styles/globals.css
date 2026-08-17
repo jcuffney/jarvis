@@ -75,10 +75,13 @@ body {
 }
 
 .idle-clock {
-  font-size: 6rem;
+  /* Scales with viewport; nowrap because the odometer's inline-block digit
+     cells would otherwise wrap between characters on narrow screens. */
+  font-size: clamp(2.6rem, 15vmin, 6rem);
   font-weight: 500;
   font-variant-numeric: tabular-nums;
   line-height: 1.1;
+  white-space: nowrap;
 }
 
 .idle-fullscreen {
