@@ -138,7 +138,7 @@ vars unset → 503):
 
 | Endpoint | Behavior |
 |---|---|
-| `GET/POST /api/tasks` | List runs / submit `{ prompt, repo }` (repo: `jarvis` \| `homelab`). |
+| `GET/POST /api/tasks` | List runs / submit `{ prompt, repo }` (repo: `jarvis` \| `homelab` \| `devbox` — the last is repo-less general filesystem access, no branch/PR). |
 | `GET /api/tasks/:id` | Run metadata: status, branch, PR URL, final result. |
 | `GET /api/tasks/:id/transcript` | Full stream-json transcript (NDJSON). |
 | `GET /api/tasks/:id/stream` | Replay + live tail until the run finishes. |

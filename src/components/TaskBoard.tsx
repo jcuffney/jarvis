@@ -13,7 +13,7 @@ export interface TaskSummary {
   finishedAt?: number | null;
 }
 
-const REPOS = ['jarvis', 'homelab'];
+const REPOS = ['jarvis', 'homelab', 'devbox'];
 const POLL_MS = 5_000;
 
 export function statusDot(status: string): string {
