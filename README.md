@@ -104,6 +104,26 @@ pushes. This is the gym-TV kiosk contract — the kiosk browser's start URL is
 satellite elsewhere. Nothing is persisted: load a URL without the param and
 the screen is interactive again.
 
+## Brain view
+
+`/brain` renders the second-brain vault (`BRAIN_DIR`, the read-only NFS mount
+of the Obsidian vault) as a live force-directed map. Notes cluster by vault
+folder — each cluster is a part of life / a project / a goal — with its own
+hue (theme accent, hue-rotated), a watermark label, and its own region of the
+screen; wikilinks across clusters stay visible as long edges. Clicking a node
+opens the note itself in a panel: rendered markdown (wikilinks hop between
+notes), vault path, last-modified, and links in/out as chips — the audit
+surface for "what does the brain actually say here?". Phantom nodes (linked
+but never written) list who references them.
+
+Viewer-facing endpoints (same trust model as `/api/assist` — LAN/VPN vhost,
+no bearer token):
+
+| Endpoint | Behavior |
+|---|---|
+| `GET /api/brain/graph` | Nodes + wikilink edges (`?refresh=1` busts the 5-min cache). |
+| `GET /api/brain/note?id=<node>` | One note: sanitized HTML, frontmatter, path, mtime, links both ways. Ids resolve through the vault index only — the param can't reach the filesystem. |
+
 ## Theming
 
 Themes are CSS custom-property sets under `[data-theme="<name>"]` in

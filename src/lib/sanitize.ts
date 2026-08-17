@@ -29,3 +29,19 @@ export function sanitizeDisplayHtml(raw: string): string {
   }
   return clean;
 }
+
+// Vault notes rendered for the brain view: same allowlist, plus `data-note`
+// (our own wikilink anchors — the client turns them into note hops) and http
+// URLs (lab notes legitimately link to LAN services).
+const NOTE_OPTIONS: sanitizeHtml.IOptions = {
+  ...OPTIONS,
+  allowedAttributes: {
+    a: ['href', 'data-note'],
+    img: ['src', 'alt'],
+  },
+  allowedSchemes: ['https', 'http'],
+};
+
+export function sanitizeNoteHtml(raw: string): string {
+  return sanitizeHtml(raw, NOTE_OPTIONS);
+}

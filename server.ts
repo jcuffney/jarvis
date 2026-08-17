@@ -4,7 +4,8 @@ import { extname, join, normalize, sep } from 'node:path';
 import type { Duplex } from 'node:stream';
 import { WebSocketServer, type WebSocket } from 'ws';
 import { store } from './src/lib/store';
-import { buildBrainGraph, invalidateBrainCache } from './src/lib/brain';
+import { buildBrainGraph, getBrainNote, invalidateBrainCache } from './src/lib/brain';
+import { renderNoteHtml } from './src/lib/noteHtml';
 import { synthesizeWav } from './src/lib/wyoming';
 import { sanitizeDisplayHtml } from './src/lib/sanitize';
 import { isAuthorized } from './src/lib/auth';
@@ -348,6 +349,39 @@ async function handleApi(req: IncomingMessage, res: ServerResponse, pathname: st
     } catch (err) {
       console.error('[brain] graph build failed:', err);
       sendJson(res, 500, { error: 'could not read the vault' });
+    }
+    return;
+  }
+
+  // One node of the map, opened: rendered note content + links both ways.
+  // Same trust model as the graph; ids resolve through the vault index, so
+  // the query param can never traverse paths.
+  if (pathname === '/api/brain/note') {
+    if (!BRAIN_DIR) {
+      sendJson(res, 503, { error: 'brain graph not configured (set BRAIN_DIR)' });
+      return;
+    }
+    const url = new URL(req.url ?? '/', 'http://jarvis.internal');
+    const id = (url.searchParams.get('id') ?? '').trim();
+    if (!id) {
+      sendJson(res, 400, { error: 'id query param is required' });
+      return;
+    }
+    try {
+      const note = getBrainNote(BRAIN_DIR, id);
+      if (!note) {
+        sendJson(res, 404, { error: `no note named "${id}"` });
+        return;
+      }
+      if ('missing' in note) {
+        sendJson(res, 200, note);
+        return;
+      }
+      const { markdown, ...meta } = note;
+      sendJson(res, 200, { ...meta, ...renderNoteHtml(markdown) });
+    } catch (err) {
+      console.error('[brain] note read failed:', err);
+      sendJson(res, 500, { error: 'could not read the note' });
     }
     return;
   }

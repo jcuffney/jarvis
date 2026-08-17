@@ -125,6 +125,160 @@ body {
   color: var(--warning, #f5a97f);
 }
 
+/* ---------- brain note panel ---------- */
+/* Right-side sheet in landscape, bottom sheet in portrait. Widths mirrored
+   in BrainGraph's pan-to-node math — change both together. */
+
+.note-panel {
+  position: fixed;
+  top: 2vmin;
+  right: 2vmin;
+  bottom: 2vmin;
+  width: min(36rem, 46vw);
+  display: flex;
+  flex-direction: column;
+  background: color-mix(in oklab, var(--bg) 86%, transparent);
+  backdrop-filter: blur(10px);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  overflow: hidden;
+  z-index: 9;
+  animation: fade-in 250ms ease-out;
+}
+
+@media (orientation: portrait) {
+  .note-panel {
+    top: auto;
+    left: 2vmin;
+    width: auto;
+    height: 55vh;
+  }
+}
+
+.note-panel-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-2);
+  padding: var(--space-3);
+  border-bottom: 1px solid var(--border);
+}
+
+.note-panel-title {
+  margin: 0;
+  font-size: 1.25rem;
+  font-weight: 650;
+  line-height: 1.2;
+}
+
+.note-panel-meta {
+  margin-top: 0.25em;
+  color: var(--text-muted);
+  font-size: 0.7rem;
+  letter-spacing: 0.02em;
+}
+
+.note-panel-close {
+  flex-shrink: 0;
+}
+
+.note-panel-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: var(--space-3);
+  font-size: 0.85rem;
+  overscroll-behavior: contain;
+}
+
+.note-panel-status {
+  color: var(--text-muted);
+  font-style: italic;
+}
+
+.note-panel-error {
+  color: var(--warning, #f5a97f);
+}
+
+/* Prose is TV-scaled; the panel needs desk density. */
+.note-panel .jarvis-prose h1 {
+  font-size: 1.4rem;
+}
+
+.note-panel .jarvis-prose h2 {
+  font-size: 1.15rem;
+}
+
+.note-panel .jarvis-prose h3 {
+  font-size: 0.95rem;
+}
+
+.note-panel .jarvis-prose h4 {
+  font-size: 0.85rem;
+}
+
+.note-panel .jarvis-prose p {
+  max-width: none;
+}
+
+.note-panel .jarvis-prose th,
+.note-panel .jarvis-prose td {
+  padding: var(--space-1) var(--space-2);
+}
+
+.note-frontmatter {
+  margin-bottom: var(--space-3);
+  font-size: 0.75rem;
+}
+
+.note-frontmatter summary {
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  font-size: 0.65rem;
+  cursor: pointer;
+}
+
+.note-frontmatter pre {
+  margin: var(--space-1) 0 0;
+  padding: var(--space-2);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  color: var(--text-muted);
+  overflow-x: auto;
+}
+
+.note-links {
+  margin-top: var(--space-3);
+  padding-top: var(--space-2);
+  border-top: 1px solid var(--border);
+}
+
+.note-links-heading {
+  margin: 0 0 var(--space-2);
+  color: var(--text-muted);
+  font-size: 0.65rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+}
+
+.note-link-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4em;
+}
+
+.note-link {
+  opacity: 0.85;
+  font-family: inherit;
+}
+
+.note-link-missing {
+  border-style: dashed;
+  color: var(--warning, #f5a97f);
+}
+
 /* ---------- corner chips ---------- */
 
 .chip {

@@ -12,6 +12,7 @@
   },
   "dependencies": {
     "d3-force": "^3.0.0",
+    "marked": "^18.0.9",
     "next": "^15.4.6",
     "react": "^19.1.0",
     "react-dom": "^19.1.0",
