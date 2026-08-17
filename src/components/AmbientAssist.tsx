@@ -69,7 +69,18 @@ export function AmbientAssist() {
     setTimeout(() => setCaptions((c) => c.filter((entry) => entry.id !== id)), CAPTION_TTL_MS);
   }, []);
 
-  const pendingAudio = useRef<HTMLAudioElement | null>(null);
+  const pendingUrl = useRef<string | null>(null);
+
+  // One persistent element for ALL replies: browsers (iOS especially) unlock
+  // audio per-element on user gesture, so a fresh `new Audio()` per reply
+  // gets autoplay-blocked forever on an untouched page — silent captions.
+  const getAudioEl = useCallback((): HTMLAudioElement => {
+    if (!audioRef.current) {
+      audioRef.current = new Audio();
+      audioRef.current.preload = 'auto';
+    }
+    return audioRef.current;
+  }, []);
 
   const speak = useCallback(
     async (text: string) => {
@@ -93,7 +104,8 @@ export function AmbientAssist() {
         }, 400);
       };
       gate();
-      let audio: HTMLAudioElement | null = null;
+      const audio = getAudioEl();
+      let url: string;
       try {
         const res = await fetch('/api/tts', {
           method: 'POST',
@@ -101,16 +113,7 @@ export function AmbientAssist() {
           body: JSON.stringify({ text }),
         });
         if (!res.ok) throw new Error(`tts ${res.status}`);
-        const blob = await res.blob();
-        const url = URL.createObjectURL(blob);
-        audioRef.current?.pause();
-        audio = new Audio(url);
-        audioRef.current = audio;
-        audio.onended = () => {
-          URL.revokeObjectURL(url);
-          doneSpeaking();
-        };
-        audio.onerror = doneSpeaking;
+        url = URL.createObjectURL(await res.blob());
       } catch {
         // Wyoming unavailable — browser voice fallback.
         if (window.speechSynthesis) {
@@ -124,27 +127,36 @@ export function AmbientAssist() {
         }
         return;
       }
+      audio.pause();
+      audio.src = url;
+      audio.onended = () => {
+        URL.revokeObjectURL(url);
+        doneSpeaking();
+      };
+      audio.onerror = doneSpeaking;
       try {
         await audio.play();
       } catch {
         // Autoplay blocked: browsers require one interaction before sound.
-        // Park the reply and release it on the next tap/keypress. Nothing is
-        // audible while parked, so listening may resume immediately.
+        // Park the reply and release it on the next tap/keypress — playing
+        // through the persistent element keeps it unlocked from then on.
         doneSpeaking();
-        pendingAudio.current = audio;
+        if (pendingUrl.current) URL.revokeObjectURL(pendingUrl.current);
+        pendingUrl.current = url;
         pushCaption('system', 'tap anywhere to enable audio');
         const unlock = () => {
-          const parked = pendingAudio.current;
-          pendingAudio.current = null;
+          const parked = pendingUrl.current;
+          pendingUrl.current = null;
           if (!parked) return;
           gate(); // suspend the mic again while the parked reply plays
-          void parked.play().catch(doneSpeaking);
+          audio.src = parked;
+          void audio.play().catch(doneSpeaking);
         };
         window.addEventListener('pointerdown', unlock, { once: true });
         window.addEventListener('keydown', unlock, { once: true });
       }
     },
-    [pushCaption],
+    [getAudioEl, pushCaption],
   );
 
   const send = useCallback(
