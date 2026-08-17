@@ -11,6 +11,7 @@ import {
   type SimulationNodeDatum,
 } from 'd3-force';
 import { AmbientAssist } from './AmbientAssist';
+import { useDisplaySocket } from '../hooks/useDisplaySocket';
 
 interface GraphNode extends SimulationNodeDatum {
   id: string;
@@ -61,6 +62,8 @@ const nodeRadius = (n: GraphNode) => 3 + Math.sqrt(n.degree + 1) * 2.2;
  * freezes — the map drifts, alive by default.
  */
 export function BrainGraph() {
+  // Keeps a socket open so producer-driven navigate messages reach this page.
+  useDisplaySocket();
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [status, setStatus] = useState<'loading' | 'ready' | 'error'>('loading');
   const [message, setMessage] = useState('mapping the brain…');

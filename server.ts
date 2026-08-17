@@ -8,7 +8,7 @@ import { buildBrainGraph, invalidateBrainCache } from './src/lib/brain';
 import { synthesizeWav } from './src/lib/wyoming';
 import { sanitizeDisplayHtml } from './src/lib/sanitize';
 import { isAuthorized } from './src/lib/auth';
-import type { DisplayState, ServerMessage } from './src/lib/protocol';
+import { NAVIGABLE_PATHS, type DisplayState, type ServerMessage } from './src/lib/protocol';
 
 const dev = process.env.NODE_ENV !== 'production';
 const port = Number(process.env.PORT ?? 3000);
@@ -303,6 +303,25 @@ async function handleApi(req: IncomingMessage, res: ServerResponse, pathname: st
     return;
   }
 
+  // Producer-driven routing: steer every connected screen to a route
+  // ("show me my brain" → the agent POSTs {path: "/brain"}).
+  if (pathname === '/api/navigate' && req.method === 'POST') {
+    const result = await readJsonBody(req);
+    if (!result.ok) {
+      sendJson(res, result.status, { error: result.error });
+      return;
+    }
+    const body = result.body as Record<string, unknown>;
+    const path = typeof body?.path === 'string' ? body.path : '';
+    if (!(NAVIGABLE_PATHS as readonly string[]).includes(path)) {
+      sendJson(res, 400, { error: `path must be one of: ${NAVIGABLE_PATHS.join(', ')}` });
+      return;
+    }
+    broadcast({ v: 1, type: 'navigate', path });
+    sendJson(res, 200, { ok: true, path });
+    return;
+  }
+
   if (pathname === '/api/display' && req.method === 'POST') {
     const result = await readJsonBody(req);
     if (!result.ok) {
@@ -361,6 +380,13 @@ function stateMessage(state: DisplayState): string {
   return JSON.stringify(msg);
 }
 
+function broadcast(msg: ServerMessage): void {
+  const payload = JSON.stringify(msg);
+  for (const client of wss.clients) {
+    if (client.readyState === client.OPEN) client.send(payload);
+  }
+}
+
 wss.on('connection', (socket) => {
   const ws = socket as LiveSocket;
   ws.missedPongs = 0;
@@ -371,12 +397,7 @@ wss.on('connection', (socket) => {
   ws.send(stateMessage(store.get()));
 });
 
-store.subscribe((state) => {
-  const payload = stateMessage(state);
-  for (const client of wss.clients) {
-    if (client.readyState === client.OPEN) client.send(payload);
-  }
-});
+store.subscribe((state) => broadcast({ v: 1, type: 'state', state }));
 
 setInterval(() => {
   for (const client of wss.clients) {

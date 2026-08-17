@@ -38,6 +38,7 @@ All endpoints except `/api/healthz` require `Authorization: Bearer $JARVIS_TOKEN
 |---|---|---|
 | `POST /api/display` | `{ html, title?, durationSec?, theme? }` | Sanitize, replace current state, broadcast. Returns `{ id, expiresAt? }`. Max body 256 KB. |
 | `POST /api/clear` | — | Back to the idle screen. |
+| `POST /api/navigate` | `{ path }` | Steer every connected screen to a route (`/` or `/brain`). |
 | `GET /api/state` | — | Current display state (sanitized HTML). |
 | `GET /api/healthz` | — | Liveness, no auth. |
 

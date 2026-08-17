@@ -48,6 +48,9 @@ export function useDisplaySocket(): { state: DisplayState; connected: boolean } 
         try {
           const msg = JSON.parse(event.data) as ServerMessage;
           if (msg.type === 'state') applyState(msg.state);
+          else if (msg.type === 'navigate' && window.location.pathname !== msg.path) {
+            window.location.assign(msg.path);
+          }
         } catch {
           // ignore malformed frames
         }
