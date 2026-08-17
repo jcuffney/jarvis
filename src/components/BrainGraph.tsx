@@ -67,7 +67,6 @@ export function BrainGraph() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [status, setStatus] = useState<'loading' | 'ready' | 'error'>('loading');
   const [message, setMessage] = useState('mapping the brain…');
-  const [noteCount, setNoteCount] = useState(0);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -244,7 +243,6 @@ export function BrainGraph() {
           .alphaMin(0.001)
           .alphaTarget(0.008);
         links = data.links as { source: GraphNode; target: GraphNode }[];
-        setNoteCount(data.noteCount);
         setStatus('ready');
         draw();
       })
@@ -272,9 +270,7 @@ export function BrainGraph() {
       <canvas ref={canvasRef} className="brain-canvas" />
       {status !== 'ready' ? (
         <div className={`brain-status${status === 'error' ? ' brain-status-error' : ''}`}>{message}</div>
-      ) : (
-        <div className="brain-meta">{noteCount} notes</div>
-      )}
+      ) : null}
       <AmbientAssist />
     </div>
   );
