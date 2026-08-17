@@ -15,6 +15,7 @@ import {
   memoryStatus,
   type MemorySource,
 } from './src/lib/memory';
+import { runAssistPipeline, type AssistResult } from './src/lib/haAssist';
 import { NAVIGABLE_PATHS, type DisplayState, type ServerMessage } from './src/lib/protocol';
 
 const dev = process.env.NODE_ENV !== 'production';
@@ -176,6 +177,45 @@ function serveNextStatic(res: ServerResponse, pathname: string): boolean {
  * the vhost is LAN/VPN-only — same trust model as a voice satellite on the
  * network. The HA token stays server-side.
  */
+async function assistViaRest(text: string, conversationId?: string): Promise<AssistResult> {
+  const haResponse = await fetch(`${HA_URL}/api/conversation/process`, {
+    method: 'POST',
+    headers: {
+      authorization: `Bearer ${HA_TOKEN}`,
+      'content-type': 'application/json',
+    },
+    body: JSON.stringify({
+      text,
+      ...(conversationId ? { conversation_id: conversationId } : {}),
+      ...(HA_AGENT_ID ? { agent_id: HA_AGENT_ID } : {}),
+    }),
+    signal: AbortSignal.timeout(ASSIST_TIMEOUT_MS),
+  });
+  if (!haResponse.ok) throw new Error(`home assistant returned ${haResponse.status}`);
+  const data = (await haResponse.json()) as {
+    conversation_id?: string;
+    response?: {
+      response_type?: string;
+      speech?: { plain?: { speech?: string } };
+    };
+  };
+  return {
+    speech: data.response?.speech?.plain?.speech ?? '',
+    responseType: data.response?.response_type ?? 'unknown',
+    conversationId: data.conversation_id,
+  };
+}
+
+function captureAssistTranscript(user: string, result: AssistResult): void {
+  appendTranscript({
+    ts: new Date().toISOString(),
+    source: 'tv',
+    ...(result.conversationId ? { conversationId: result.conversationId } : {}),
+    user,
+    assistant: result.speech,
+  });
+}
+
 async function handleAssist(req: IncomingMessage, res: ServerResponse): Promise<void> {
   if (req.method !== 'POST') {
     sendJson(res, 405, { error: 'method not allowed' });
@@ -198,49 +238,56 @@ async function handleAssist(req: IncomingMessage, res: ServerResponse): Promise<
     sendJson(res, 400, { error: 'text (non-empty string) is required' });
     return;
   }
-  try {
-    const haResponse = await fetch(`${HA_URL}/api/conversation/process`, {
-      method: 'POST',
-      headers: {
-        authorization: `Bearer ${HA_TOKEN}`,
-        'content-type': 'application/json',
-      },
-      body: JSON.stringify({
-        text: body.text,
-        ...(typeof body.conversationId === 'string' ? { conversation_id: body.conversationId } : {}),
-        ...(HA_AGENT_ID ? { agent_id: HA_AGENT_ID } : {}),
-      }),
-      signal: AbortSignal.timeout(ASSIST_TIMEOUT_MS),
-    });
-    if (!haResponse.ok) {
-      console.error(`[assist] HA returned ${haResponse.status}`);
-      sendJson(res, 502, { error: `home assistant returned ${haResponse.status}` });
-      return;
+  const text = body.text;
+  const conversationId = typeof body.conversationId === 'string' ? body.conversationId : undefined;
+
+  const wantStream =
+    new URL(req.url ?? '/', 'http://jarvis.internal').searchParams.get('stream') === '1';
+  if (!wantStream) {
+    try {
+      const assist = await assistViaRest(text, conversationId);
+      captureAssistTranscript(text, assist);
+      sendJson(res, 200, assist);
+    } catch (err) {
+      console.error('[assist] request failed:', err);
+      sendJson(res, 502, { error: 'could not reach home assistant' });
     }
-    const data = (await haResponse.json()) as {
-      conversation_id?: string;
-      response?: {
-        response_type?: string;
-        speech?: { plain?: { speech?: string } };
-      };
-    };
-    const speech = data.response?.speech?.plain?.speech ?? '';
-    appendTranscript({
-      ts: new Date().toISOString(),
-      source: 'tv',
-      ...(data.conversation_id ? { conversationId: data.conversation_id } : {}),
-      user: body.text,
-      assistant: speech,
-    });
-    sendJson(res, 200, {
-      speech,
-      responseType: data.response?.response_type ?? 'unknown',
-      conversationId: data.conversation_id,
-    });
-  } catch (err) {
-    console.error('[assist] request failed:', err);
-    sendJson(res, 502, { error: 'could not reach home assistant' });
+    return;
   }
+
+  // Streaming mode: NDJSON of {type:"tool"} activity lines, then one
+  // {type:"result"} line. x-accel-buffering keeps the gateway nginx from
+  // holding lines back until the response completes.
+  res.writeHead(200, {
+    'content-type': 'application/x-ndjson; charset=utf-8',
+    'cache-control': 'no-cache',
+    'x-accel-buffering': 'no',
+  });
+  const line = (obj: Record<string, unknown>) => res.write(`${JSON.stringify(obj)}\n`);
+  try {
+    const assist = await runAssistPipeline({
+      haUrl: HA_URL,
+      token: HA_TOKEN,
+      agentId: HA_AGENT_ID,
+      text,
+      conversationId,
+      timeoutMs: ASSIST_TIMEOUT_MS,
+      onToolCall: (name) => line({ type: 'tool', name }),
+    });
+    captureAssistTranscript(text, assist);
+    line({ type: 'result', ...assist });
+  } catch (err) {
+    console.error('[assist] pipeline stream failed, falling back to REST:', err);
+    try {
+      const assist = await assistViaRest(text, conversationId);
+      captureAssistTranscript(text, assist);
+      line({ type: 'result', ...assist });
+    } catch (restErr) {
+      console.error('[assist] REST fallback failed:', restErr);
+      line({ type: 'error', error: 'could not reach home assistant' });
+    }
+  }
+  res.end();
 }
 
 async function handleApi(req: IncomingMessage, res: ServerResponse, pathname: string): Promise<void> {

@@ -40,6 +40,25 @@ interface Caption {
 type MicState = 'listening' | 'muted' | 'unavailable';
 
 const CAPTION_TTL_MS = 9_000;
+
+/** "search_knowledge_base" / "HassTurnOn" → "search knowledge base" / "turn on". */
+function humanizeTool(name: string): string {
+  return (
+    name
+      .replace(/^Hass/, '')
+      .replace(/_/g, ' ')
+      .replace(/([a-z0-9])([A-Z])/g, '$1 $2')
+      .toLowerCase()
+      .trim() || 'working'
+  );
+}
+
+interface AssistResponse {
+  speech?: string;
+  responseType?: string;
+  conversationId?: string;
+  error?: string;
+}
 const NAV_BRAIN = /\b(?:show|open|go to|display|pull up)\b.*\bbrain\b/i;
 const NAV_HOME =
   /\bgo (?:back|home)\b|\btake me (?:back|home)\b|\b(?:show|open|go to|back to|return to|display)\b.*\b(?:display|dashboard|home|hud|main)\b/i;
@@ -58,7 +77,8 @@ export function AmbientAssist() {
   // same empty shell; the effect below then keeps the whole layer inert.
   const [displayOnly, setDisplayOnly] = useState(false);
   const [mic, setMic] = useState<MicState>('unavailable');
-  const [busy, setBusy] = useState(false);
+  // null = idle; '' = waiting on the agent; anything else = live tool activity.
+  const [activity, setActivity] = useState<string | null>(null);
   const conversationId = useRef<string | undefined>(undefined);
   const recognizer = useRef<SpeechRecognitionLike | null>(null);
   const mutedRef = useRef(false);
@@ -181,23 +201,48 @@ export function AmbientAssist() {
       }
 
       pushCaption('user', trimmed);
-      setBusy(true);
+      setActivity('');
       // Lets the rest of the page react while Jarvis reasons (the orb pulses).
       document.documentElement.dataset.assist = 'busy';
       try {
-        const res = await fetch('/api/assist', {
+        const res = await fetch('/api/assist?stream=1', {
           method: 'POST',
           headers: { 'content-type': 'application/json' },
           body: JSON.stringify({ text: trimmed, conversationId: conversationId.current }),
         });
-        const data = (await res.json()) as {
-          speech?: string;
-          responseType?: string;
-          conversationId?: string;
-          error?: string;
-        };
-        if (!res.ok) {
-          pushCaption('system', data.error ?? `assist error (${res.status})`);
+        let data: AssistResponse | null = null;
+        if (res.ok && res.body && (res.headers.get('content-type') ?? '').includes('ndjson')) {
+          // NDJSON: {type:"tool"} activity lines while the agent works,
+          // then a single {type:"result"} (or {type:"error"}) line.
+          const reader = res.body.getReader();
+          const decoder = new TextDecoder();
+          let buffered = '';
+          for (;;) {
+            const { done, value } = await reader.read();
+            if (done) break;
+            buffered += decoder.decode(value, { stream: true });
+            let newline;
+            while ((newline = buffered.indexOf('\n')) !== -1) {
+              const raw = buffered.slice(0, newline).trim();
+              buffered = buffered.slice(newline + 1);
+              if (!raw) continue;
+              const msg = JSON.parse(raw) as AssistResponse & { type?: string; name?: string };
+              if (msg.type === 'tool' && msg.name) setActivity(humanizeTool(msg.name));
+              else if (msg.type === 'result') data = msg;
+              else if (msg.type === 'error') data = { error: msg.error };
+            }
+          }
+          if (!data) throw new Error('stream ended without a result');
+        } else {
+          // Plain JSON — non-stream server or an early HTTP error.
+          data = (await res.json()) as AssistResponse;
+          if (!res.ok) {
+            pushCaption('system', data.error ?? `assist error (${res.status})`);
+            return;
+          }
+        }
+        if (data.error) {
+          pushCaption('system', data.error);
           return;
         }
         conversationId.current = data.conversationId ?? conversationId.current;
@@ -208,7 +253,7 @@ export function AmbientAssist() {
       } catch {
         pushCaption('system', 'could not reach jarvis');
       } finally {
-        setBusy(false);
+        setActivity(null);
         delete document.documentElement.dataset.assist;
       }
     },
@@ -318,10 +363,9 @@ export function AmbientAssist() {
           </div>
         ))}
         {interim ? <div className="caption caption-user caption-interim">{interim}</div> : null}
-        {busy ? (
+        {activity !== null ? (
           <div className="caption caption-busy">
-            <span className="caption-tag">JARVIS</span>
-            thinking
+            {activity || 'thinking'}
             <span className="idle-dots" aria-hidden="true">
               <span>.</span>
               <span>.</span>
