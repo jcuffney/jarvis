@@ -49,7 +49,7 @@ const NAV_HOME =
  * the Wyoming Jarvis voice (/api/tts; browser speechSynthesis fallback).
  * Voice nav: "show the brain map" / "back to the display".
  */
-export function AmbientAssist({ children }: { children?: React.ReactNode }) {
+export function AmbientAssist() {
   const [captions, setCaptions] = useState<Caption[]>([]);
   const [interim, setInterim] = useState('');
   const [mic, setMic] = useState<MicState>('unavailable');
@@ -317,7 +317,6 @@ export function AmbientAssist({ children }: { children?: React.ReactNode }) {
             {mic === 'listening' ? '🎙 listening' : '🎙 muted'}
           </button>
         ) : null}
-        {children}
       </div>
     </>
   );
