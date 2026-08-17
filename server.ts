@@ -16,6 +16,7 @@ import {
   type MemorySource,
 } from './src/lib/memory';
 import { runAssistPipeline, type AssistResult } from './src/lib/haAssist';
+import { markLocalConversation, startPipelineCapture } from './src/lib/pipelineCapture';
 import { NAVIGABLE_PATHS, type DisplayState, type ServerMessage } from './src/lib/protocol';
 
 const dev = process.env.NODE_ENV !== 'production';
@@ -207,6 +208,8 @@ async function assistViaRest(text: string, conversationId?: string): Promise<Ass
 }
 
 function captureAssistTranscript(user: string, result: AssistResult): void {
+  // Registered so the pipeline-debug poller doesn't re-capture our own runs.
+  markLocalConversation(result.conversationId);
   appendTranscript({
     ts: new Date().toISOString(),
     source: 'tv',
@@ -565,5 +568,13 @@ createNextHandlers().then(({ handleRequest, handleUpgrade }) => {
 
   server.listen(port, () => {
     console.log(`jarvis listening on :${port} (${dev ? 'dev' : 'production'})`);
+  });
+
+  // Satellite/phone conversations bypass this process entirely — harvest them
+  // from HA's pipeline debug store (no-op unless assist + memory configured).
+  startPipelineCapture({
+    haUrl: HA_URL,
+    token: HA_TOKEN,
+    pollMs: Number(process.env.PIPELINE_POLL_MS ?? 60_000),
   });
 });
