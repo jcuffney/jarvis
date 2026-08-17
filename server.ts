@@ -8,6 +8,13 @@ import { buildBrainGraph, invalidateBrainCache } from './src/lib/brain';
 import { synthesizeWav } from './src/lib/wyoming';
 import { sanitizeDisplayHtml } from './src/lib/sanitize';
 import { isAuthorized } from './src/lib/auth';
+import {
+  appendArtifact,
+  appendTranscript,
+  memoryEnabled,
+  memoryStatus,
+  type MemorySource,
+} from './src/lib/memory';
 import { NAVIGABLE_PATHS, type DisplayState, type ServerMessage } from './src/lib/protocol';
 
 const dev = process.env.NODE_ENV !== 'production';
@@ -217,8 +224,16 @@ async function handleAssist(req: IncomingMessage, res: ServerResponse): Promise<
         speech?: { plain?: { speech?: string } };
       };
     };
+    const speech = data.response?.speech?.plain?.speech ?? '';
+    appendTranscript({
+      ts: new Date().toISOString(),
+      source: 'tv',
+      ...(data.conversation_id ? { conversationId: data.conversation_id } : {}),
+      user: body.text,
+      assistant: speech,
+    });
     sendJson(res, 200, {
-      speech: data.response?.speech?.plain?.speech ?? '',
+      speech,
       responseType: data.response?.response_type ?? 'unknown',
       conversationId: data.conversation_id,
     });
@@ -319,6 +334,69 @@ async function handleApi(req: IncomingMessage, res: ServerResponse, pathname: st
     }
     broadcast({ v: 1, type: 'navigate', path });
     sendJson(res, 200, { ok: true, path });
+    return;
+  }
+
+  // Short-term memory tier (src/lib/memory). Producers: the HA pipeline
+  // forwards satellite conversations to /transcript; the "remember that…"
+  // voice tool lands explicit artifacts on /artifact. TV conversations are
+  // captured inside handleAssist and never come through here.
+  if (pathname === '/api/memory/transcript' && req.method === 'POST') {
+    if (!memoryEnabled) {
+      sendJson(res, 503, { error: 'memory not configured (set DATA_DIR)' });
+      return;
+    }
+    const result = await readJsonBody(req);
+    if (!result.ok) {
+      sendJson(res, result.status, { error: result.error });
+      return;
+    }
+    const body = result.body as Record<string, unknown>;
+    if (typeof body?.user !== 'string' || body.user.trim() === '') {
+      sendJson(res, 400, { error: 'user (non-empty string) is required' });
+      return;
+    }
+    if (typeof body?.assistant !== 'string' || body.assistant.trim() === '') {
+      sendJson(res, 400, { error: 'assistant (non-empty string) is required' });
+      return;
+    }
+    appendTranscript({
+      ts: new Date().toISOString(),
+      source: (body.source === 'tv' ? 'tv' : 'ha-pipeline') as MemorySource,
+      ...(typeof body.conversationId === 'string' ? { conversationId: body.conversationId } : {}),
+      user: body.user,
+      assistant: body.assistant,
+    });
+    sendJson(res, 200, { ok: true });
+    return;
+  }
+
+  if (pathname === '/api/memory/artifact' && req.method === 'POST') {
+    if (!memoryEnabled) {
+      sendJson(res, 503, { error: 'memory not configured (set DATA_DIR)' });
+      return;
+    }
+    const result = await readJsonBody(req);
+    if (!result.ok) {
+      sendJson(res, result.status, { error: result.error });
+      return;
+    }
+    const body = result.body as Record<string, unknown>;
+    if (typeof body?.text !== 'string' || body.text.trim() === '') {
+      sendJson(res, 400, { error: 'text (non-empty string) is required' });
+      return;
+    }
+    appendArtifact({
+      ts: new Date().toISOString(),
+      source: (body.source === 'tv' ? 'tv' : 'ha-pipeline') as MemorySource,
+      text: body.text,
+    });
+    sendJson(res, 200, { ok: true });
+    return;
+  }
+
+  if (pathname === '/api/memory/status' && req.method === 'GET') {
+    sendJson(res, 200, memoryStatus());
     return;
   }
 
