@@ -50,6 +50,12 @@ const TTS_HOST = process.env.TTS_HOST ?? '';
 const TTS_PORT = Number(process.env.TTS_PORT ?? 10200);
 const TTS_VOICE = process.env.TTS_VOICE ?? 'jarvis-medium';
 
+// Claude task runner on the devbox (/api/tasks/*). The bearer token stays
+// server-side, same trust decision as the HA bridge; unset disables with 503.
+const TASKS_URL = (process.env.TASKS_URL ?? '').replace(/\/$/, '');
+const TASKS_TOKEN = process.env.TASKS_TOKEN ?? '';
+const TASK_ID = /^[0-9]{8}-[0-9]{6}-[0-9a-f]{6}$/;
+
 type RequestHandler = (req: IncomingMessage, res: ServerResponse) => Promise<void> | void;
 type UpgradeHandler = (req: IncomingMessage, socket: Duplex, head: Buffer) => Promise<void> | void;
 
@@ -294,6 +300,103 @@ async function handleAssist(req: IncomingMessage, res: ServerResponse): Promise<
   res.end();
 }
 
+/**
+ * Proxy for the claude-tasks runner on the devbox. Viewer-facing like
+ * /api/assist (the kiosk can't hold secrets; the vhost is LAN/VPN-only) —
+ * the runner's bearer token is injected here and never reaches the browser.
+ * /stream pipes the runner's live NDJSON tail through untouched.
+ */
+async function handleTasks(req: IncomingMessage, res: ServerResponse, pathname: string): Promise<void> {
+  if (!TASKS_URL || !TASKS_TOKEN) {
+    const missing = [!TASKS_URL && 'TASKS_URL', !TASKS_TOKEN && 'TASKS_TOKEN (jarvis-tasks secret)']
+      .filter(Boolean)
+      .join(' + ');
+    sendJson(res, 503, { error: `tasks not configured — missing ${missing}` });
+    return;
+  }
+  const parts = pathname.split('/').filter(Boolean); // ["api","tasks",id?,verb?]
+  const id = parts[2];
+  const verb = parts[3];
+  if (id !== undefined && !TASK_ID.test(id)) {
+    sendJson(res, 404, { error: 'not found' });
+    return;
+  }
+  const auth = { authorization: `Bearer ${TASKS_TOKEN}` };
+
+  let upstream: string | null = null;
+  let init: RequestInit = { headers: auth };
+  if (req.method === 'GET' && id === undefined) {
+    const url = new URL(req.url ?? '/', 'http://jarvis.internal');
+    upstream = `${TASKS_URL}/tasks${url.search}`;
+  } else if (req.method === 'POST' && id === undefined) {
+    const result = await readJsonBody(req);
+    if (!result.ok) {
+      sendJson(res, result.status, { error: result.error });
+      return;
+    }
+    upstream = `${TASKS_URL}/tasks`;
+    init = {
+      method: 'POST',
+      headers: { ...auth, 'content-type': 'application/json' },
+      body: JSON.stringify(result.body),
+    };
+  } else if (req.method === 'GET' && id && verb === undefined) {
+    upstream = `${TASKS_URL}/tasks/${id}`;
+  } else if (req.method === 'GET' && id && verb === 'transcript') {
+    upstream = `${TASKS_URL}/tasks/${id}/transcript`;
+  } else if (req.method === 'POST' && id && verb === 'cancel') {
+    upstream = `${TASKS_URL}/tasks/${id}/cancel`;
+    init = { method: 'POST', headers: auth };
+  } else if (req.method === 'GET' && id && verb === 'stream') {
+    // Live tail: no timeout (runs legitimately take an hour), abort upstream
+    // when the viewer disconnects, flush line-by-line through the gateway.
+    const controller = new AbortController();
+    res.on('close', () => controller.abort());
+    try {
+      const tail = await fetch(`${TASKS_URL}/tasks/${id}/stream`, {
+        headers: auth,
+        signal: controller.signal,
+      });
+      if (!tail.ok || !tail.body) {
+        sendJson(res, tail.status === 404 ? 404 : 502, { error: `runner returned ${tail.status}` });
+        return;
+      }
+      res.writeHead(200, {
+        'content-type': 'application/x-ndjson; charset=utf-8',
+        'cache-control': 'no-cache',
+        'x-accel-buffering': 'no',
+      });
+      const reader = tail.body.getReader();
+      for (;;) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        res.write(value);
+      }
+    } catch (err) {
+      if (!controller.signal.aborted) console.error('[tasks] stream proxy failed:', err);
+    }
+    res.end();
+    return;
+  }
+
+  if (!upstream) {
+    sendJson(res, 405, { error: 'method not allowed' });
+    return;
+  }
+  try {
+    const proxied = await fetch(upstream, { ...init, signal: AbortSignal.timeout(15_000) });
+    const body = await proxied.text();
+    res.writeHead(proxied.status, {
+      'content-type': proxied.headers.get('content-type') ?? 'application/json',
+      'content-length': Buffer.byteLength(body),
+    });
+    res.end(body);
+  } catch (err) {
+    console.error('[tasks] proxy failed:', err);
+    sendJson(res, 502, { error: 'could not reach the task runner' });
+  }
+}
+
 async function handleApi(req: IncomingMessage, res: ServerResponse, pathname: string): Promise<void> {
   if (pathname === '/api/healthz') {
     sendJson(res, 200, { ok: true });
@@ -302,6 +405,11 @@ async function handleApi(req: IncomingMessage, res: ServerResponse, pathname: st
 
   if (pathname === '/api/assist') {
     await handleAssist(req, res);
+    return;
+  }
+
+  if (pathname === '/api/tasks' || pathname.startsWith('/api/tasks/')) {
+    await handleTasks(req, res, pathname);
     return;
   }
 

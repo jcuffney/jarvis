@@ -124,6 +124,26 @@ no bearer token):
 | `GET /api/brain/graph` | Nodes + wikilink edges (`?refresh=1` busts the 5-min cache). |
 | `GET /api/brain/note?id=<node>` | One note: sanitized HTML, frontmatter, path, mtime, links both ways. Ids resolve through the vault index only — the param can't reach the filesystem. |
 
+## Tasks view
+
+`/tasks` dispatches Claude Code runs to the devbox task runner (the
+`claude-tasks` service, homelab `claude_tasks` role) and `/tasks/<id>`
+renders the full run transcript live — assistant reasoning as prose, tool
+calls as terminal-style lines, then the final summary with the PR link.
+Voice: "show the tasks".
+
+The server proxies `/api/tasks*` to `$TASKS_URL` injecting the server-held
+`$TASKS_TOKEN` (viewer-facing, same trust model as `/api/assist`; both env
+vars unset → 503):
+
+| Endpoint | Behavior |
+|---|---|
+| `GET/POST /api/tasks` | List runs / submit `{ prompt, repo }` (repo: `jarvis` \| `homelab`). |
+| `GET /api/tasks/:id` | Run metadata: status, branch, PR URL, final result. |
+| `GET /api/tasks/:id/transcript` | Full stream-json transcript (NDJSON). |
+| `GET /api/tasks/:id/stream` | Replay + live tail until the run finishes. |
+| `POST /api/tasks/:id/cancel` | Best-effort cancel (SIGTERM; partial branch survives for inspection). |
+
 ## Theming
 
 Themes are CSS custom-property sets under `[data-theme="<name>"]` in

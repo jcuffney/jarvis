@@ -60,6 +60,7 @@ interface AssistResponse {
   error?: string;
 }
 const NAV_BRAIN = /\b(?:show|open|go to|display|pull up)\b.*\bbrain\b/i;
+const NAV_TASKS = /\b(?:show|open|go to|display|pull up)\b.*\btasks?\b/i;
 const NAV_HOME =
   /\bgo (?:back|home)\b|\btake me (?:back|home)\b|\b(?:show|open|go to|back to|return to|display)\b.*\b(?:display|dashboard|home|hud|main)\b/i;
 
@@ -192,6 +193,11 @@ export function AmbientAssist() {
       if (NAV_BRAIN.test(trimmed)) {
         pushCaption('system', '→ brain map');
         window.location.assign('/brain');
+        return;
+      }
+      if (NAV_TASKS.test(trimmed)) {
+        pushCaption('system', '→ tasks');
+        window.location.assign('/tasks');
         return;
       }
       if (NAV_HOME.test(trimmed)) {

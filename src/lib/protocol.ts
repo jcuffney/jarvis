@@ -20,7 +20,7 @@ export type ServerMessage =
   | { v: 1; type: 'navigate'; path: string };
 
 /** Routes producers may navigate screens to. */
-export const NAVIGABLE_PATHS = ['/', '/brain'] as const;
+export const NAVIGABLE_PATHS = ['/', '/brain', '/tasks'] as const;
 
 export interface DisplayRequest {
   html: string;
