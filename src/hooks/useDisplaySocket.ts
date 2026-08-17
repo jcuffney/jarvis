@@ -49,7 +49,8 @@ export function useDisplaySocket(): { state: DisplayState; connected: boolean } 
           const msg = JSON.parse(event.data) as ServerMessage;
           if (msg.type === 'state') applyState(msg.state);
           else if (msg.type === 'navigate' && window.location.pathname !== msg.path) {
-            window.location.assign(msg.path);
+            // Carry the query along so ?mode=display survives producer nav.
+            window.location.assign(msg.path + window.location.search);
           }
         } catch {
           // ignore malformed frames

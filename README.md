@@ -93,6 +93,17 @@ Kiosk note: Chromium needs mic permission — add
 `--use-fake-ui-for-media-stream` (auto-grants) or grant once in the profile.
 SpeechRecognition in Chromium uses Google's speech service (needs internet).
 
+### Display-only mode
+
+`?mode=display` makes a screen render-only: the ambient assist layer never
+mounts (no SpeechRecognition, no mic chip, no TTS), independent of whatever
+mic hardware or permissions the device has. Producer-driven navigation
+preserves the query, so the screen stays display-only across `/api/navigate`
+pushes. This is the gym-TV kiosk contract — the kiosk browser's start URL is
+`https://jarvis.cuffney.com/?mode=display`; voice input happens on a
+satellite elsewhere. Nothing is persisted: load a URL without the param and
+the screen is interactive again.
+
 ## Theming
 
 Themes are CSS custom-property sets under `[data-theme="<name>"]` in

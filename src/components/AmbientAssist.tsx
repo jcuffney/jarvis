@@ -2,6 +2,8 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 
+import { isDisplayMode } from '../lib/displayMode';
+
 // Minimal typings for the (webkit-prefixed) Web Speech API.
 interface SpeechRecognitionLike {
   lang: string;
@@ -52,6 +54,9 @@ const NAV_HOME =
 export function AmbientAssist() {
   const [captions, setCaptions] = useState<Caption[]>([]);
   const [interim, setInterim] = useState('');
+  // Checked in state (not at module level) so SSR and hydration render the
+  // same empty shell; the effect below then keeps the whole layer inert.
+  const [displayOnly, setDisplayOnly] = useState(false);
   const [mic, setMic] = useState<MicState>('unavailable');
   const [busy, setBusy] = useState(false);
   const conversationId = useRef<string | undefined>(undefined);
@@ -268,6 +273,10 @@ export function AmbientAssist() {
   }, [send]);
 
   useEffect(() => {
+    if (isDisplayMode()) {
+      setDisplayOnly(true);
+      return;
+    }
     if (window.localStorage.getItem('jarvis-mic') === 'off') {
       mutedRef.current = true;
       setMic(makeRecognizer() ? 'muted' : 'unavailable');
@@ -296,6 +305,8 @@ export function AmbientAssist() {
       startListening();
     }
   };
+
+  if (displayOnly) return null;
 
   return (
     <>
